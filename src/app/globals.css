@@ -1,8 +1,11 @@
+/* globals.tsx */
+
 /* Title styling */
 .calendar-container h2,
 .calendar-title,
 h2 {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   font-weight: 600;
   font-size: 1.75rem;
   color: #2d3748;
@@ -17,7 +20,7 @@ h2 {
 .fc-col-header,
 .fc-daygrid-body,
 .fc-scrollgrid-sync-table {
-  border-width: px !important;
+  border-width: 1px !important; /* Fixed missing border width */
   border-color: #c0c0c0 !important;
 }
 
@@ -48,7 +51,8 @@ h2 {
 
 /* Keep other font styles */
 .fc {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   font-weight: 400;
 }
 
