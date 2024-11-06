@@ -13,7 +13,7 @@ export default function HomePage() {
   return (
     <div>
       {/* Page title */}
-      <h1>My Task Calendar</h1>
+      <h2>Time Wise Calendar View</h2>
       
       {/* Display the TaskCalendar component here */}
       <TaskCalendar />
