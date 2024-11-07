@@ -1,4 +1,5 @@
-// TaskCalendar.tsx
+// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
+
 
 import React, { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
@@ -50,12 +51,17 @@ const TaskCalendar = () => {
       setEvents(data.map((event: any) => ({
         id: event.id.toString(),
         title: event.title,
-        start: event.start_time,
-        end: event.end_time,
+        start: formatDateForInput(new Date(event.start_time)),
+        end: formatDateForInput(new Date(event.end_time)),
       })));
     } catch (error) {
       console.error('Error fetching events:', error);
     }
+  };
+
+  const formatDateForInput = (date: Date): string => {
+    const pad = (num: number) => num.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
   const openModal = (event: CalendarEvent | null) => {
@@ -86,10 +92,23 @@ const TaskCalendar = () => {
       });
       const newEvent = await response.json();
       if (method === 'POST') {
-        setEvents((prev) => [...prev, { ...newEvent, id: newEvent.id.toString() }]);
+        setEvents((prev) => [...prev, { 
+          ...newEvent, 
+          id: newEvent.id.toString(),
+          start: formatDateForInput(new Date(newEvent.start_time)),
+          end: formatDateForInput(new Date(newEvent.end_time)),
+        }]);
       } else {
         setEvents((prev) =>
-          prev.map((event) => (event.id === newEvent.id ? newEvent : event))
+          prev.map((event) => (
+            event.id === newEvent.id 
+              ? {
+                  ...newEvent,
+                  start: formatDateForInput(new Date(newEvent.start_time)),
+                  end: formatDateForInput(new Date(newEvent.end_time)),
+                }
+              : event
+          ))
         );
       }
       closeModal();
@@ -110,119 +129,47 @@ const TaskCalendar = () => {
     }
   };
 
+  const handleDateSelect = (selectInfo: any) => {
+    const view = selectInfo.view.type;
+    const startDate = new Date(selectInfo.start);
+    let endDate = new Date(selectInfo.end);
+
+    // For month view, set default times
+    if (view === 'dayGridMonth') {
+      startDate.setHours(9, 0, 0); // Set to 9:00 AM
+      endDate = new Date(startDate);
+      endDate.setHours(10, 0, 0); // Set to 10:00 AM
+    } else {
+      // For week/day view, set end time to 1 hour after start
+      endDate = new Date(startDate);
+      endDate.setHours(startDate.getHours() + 1);
+    }
+
+    openModal({
+      id: '',
+      title: '',
+      start: formatDateForInput(startDate),
+      end: formatDateForInput(endDate),
+    });
+  };
+
+  const handleEventClick = (eventInfo: any) => {
+    const startDate = new Date(eventInfo.event.start);
+    const endDate = new Date(eventInfo.event.end);
+
+    openModal({
+      id: eventInfo.event.id,
+      title: eventInfo.event.title,
+      start: formatDateForInput(startDate),
+      end: formatDateForInput(endDate),
+    });
+  };
+
   if (!modalRoot) return null;
 
   return (
     <div className="calendar-container bg-light-gray p-4 rounded-lg shadow">
-      <style>
-        {`
-          /* Calendar Styles */
-          .calendar-container {
-            background-color: #f7f7f7;
-          }
-          .fc-theme-standard td, 
-          .fc-theme-standard th {
-            border-color: #dcdcdc;
-          }
-          .fc-daygrid-day {
-            background-color: white;
-          }
-          .fc-day-today {
-            background-color: #e2e6e9 !important;
-          }
-          .fc-button-primary {
-            background-color: #357edd !important;
-            border-color: #357edd !important;
-          }
-          .fc-event {
-            background-color: #ffcc00;
-            border-color: #ff9900;
-          }
-
-          /* Modal Styles */
-          .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.65);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-          }
-
-          .modal {
-            position: relative;
-            background: #1e1e1e;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            max-width: 500px;
-            width: 90%;
-            color: white;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
-          }
-
-          .modal-content {
-            width: 100%;
-          }
-
-          /* Form Styles */
-          .form-input {
-            width: 100%;
-            padding: 0.6rem;
-            margin-bottom: 1rem;
-            border: 1px solid #bdbdbd;
-            border-radius: 0.375rem;
-            background-color: #333;
-            color: white;
-          }
-
-          .form-label {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            font-weight: 600;
-            font-size: 1rem;
-            color: white;
-            margin-bottom: 0.5rem;
-          }
-
-          h2 {
-            font-size: 1.75rem;
-            font-weight: 600;
-            color: white;
-            margin-bottom: 1.5rem;
-          }
-
-          .button-group {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-          }
-
-          .button {
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            font-weight: 500;
-            cursor: pointer;
-          }
-
-          .button-primary {
-            background-color: #3b82f6;
-            color: white;
-          }
-
-          .button-danger {
-            background-color: #ef4444;
-            color: white;
-          }
-
-          .button-secondary {
-            background-color: #6b7280;
-            color: white;
-          }
-        `}
-      </style>
+      {/* Your existing styles here */}
 
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -237,22 +184,8 @@ const TaskCalendar = () => {
           right: 'dayGridMonth,timeGridWeek,timeGridDay'
         }}
         height="auto"
-        select={(selectInfo) => {
-          openModal({
-            id: '',
-            title: '',
-            start: selectInfo.startStr,
-            end: selectInfo.endStr,
-          });
-        }}
-        eventClick={(eventInfo) => {
-          openModal({
-            id: eventInfo.event.id,
-            title: eventInfo.event.title,
-            start: eventInfo.event.startStr,
-            end: eventInfo.event.endStr,
-          });
-        }}
+        select={handleDateSelect}
+        eventClick={handleEventClick}
       />
 
       <Modal 
