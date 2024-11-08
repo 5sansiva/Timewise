@@ -48,6 +48,12 @@ const TaskCalendar = () => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
+  const setAllDayTimes = (date: string | Date, isEnd: boolean = false): string => {
+    const d = new Date(date);
+    d.setHours(isEnd ? 23 : 0, isEnd ? 59 : 0, 0, 0); // Set to 23:59 for end time, 00:00 for start time
+    return formatDateForInput(d);
+  };
+
   const fetchEvents = async () => {
     try {
       const response = await fetch('/api/events');
@@ -55,8 +61,8 @@ const TaskCalendar = () => {
       setEvents(data.map((event: any) => ({
         id: event.id.toString(),
         title: event.title,
-        start: formatDateForInput(new Date(event.start_time)),
-        end: formatDateForInput(new Date(event.end_time)),
+        start: event.allDay ? setAllDayTimes(event.start_time) : formatDateForInput(new Date(event.start_time)),
+        end: event.allDay ? setAllDayTimes(event.end_time, true) : formatDateForInput(new Date(event.end_time)),
         allDay: event.allDay,
       })));
     } catch (error) {
@@ -65,7 +71,16 @@ const TaskCalendar = () => {
   };
 
   const openModal = (event: CalendarEvent | null) => {
-    setSelectedEvent(event);
+    if (event) {
+      const updatedEvent = {
+        ...event,
+        start: event.allDay ? setAllDayTimes(event.start) : event.start,
+        end: event.allDay ? setAllDayTimes(event.end, true) : event.end,
+      };
+      setSelectedEvent(updatedEvent);
+    } else {
+      setSelectedEvent(event);
+    }
     setIsModalOpen(true);
     setErrorMessage('');
   };
@@ -90,7 +105,6 @@ const TaskCalendar = () => {
       return;
     }
 
-    // Skip time validation for all-day events
     if (!selectedEvent.allDay && !validateEventTimes(selectedEvent.start, selectedEvent.end)) {
       setErrorMessage('End time must be after start time');
       return;
@@ -99,41 +113,36 @@ const TaskCalendar = () => {
     const method = selectedEvent?.id ? 'PUT' : 'POST';
     const url = selectedEvent?.id ? `/api/events/${selectedEvent.id}` : '/api/events/create';
 
-    // Adjust end date for all-day events to include the full day
-    let adjustedEndDate = selectedEvent.end;
-    if (selectedEvent.allDay) {
-      const endDate = new Date(selectedEvent.end);
-      endDate.setHours(23, 59, 59, 999);
-      adjustedEndDate = formatDateForInput(endDate);
-    }
-
-    const body = JSON.stringify({
-      title: selectedEvent?.title,
-      start_time: selectedEvent?.start,
-      end_time: adjustedEndDate,
-      allDay: selectedEvent?.allDay,
-    });
+    const eventToSave = {
+      ...selectedEvent,
+      start: selectedEvent.allDay ? setAllDayTimes(selectedEvent.start) : selectedEvent.start,
+      end: selectedEvent.allDay ? setAllDayTimes(selectedEvent.start, true) : selectedEvent.end, // end same day at 23:59
+    };
 
     try {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body,
+        body: JSON.stringify({
+          title: eventToSave.title,
+          start_time: eventToSave.start,
+          end_time: eventToSave.end,
+          allDay: eventToSave.allDay,
+        }),
       });
-      const newEvent = await response.json();
       
+      const newEvent = await response.json();
       const formattedEvent = {
         id: newEvent.id.toString(),
         title: newEvent.title,
-        start: formatDateForInput(new Date(newEvent.start_time)),
-        end: formatDateForInput(new Date(newEvent.end_time)),
+        start: newEvent.allDay ? setAllDayTimes(newEvent.start_time) : formatDateForInput(new Date(newEvent.start_time)),
+        end: newEvent.allDay ? setAllDayTimes(newEvent.end_time, true) : formatDateForInput(new Date(newEvent.end_time)),
         allDay: newEvent.allDay,
       };
 
       if (method === 'POST') {
         setEvents(prev => [...prev, formattedEvent]);
       } else {
-        // Immediately update the events state for edits
         setEvents(prev => 
           prev.map(event => 
             event.id === formattedEvent.id ? formattedEvent : event
@@ -162,41 +171,45 @@ const TaskCalendar = () => {
   };
 
   const handleDateSelect = (selectInfo: any) => {
-    const view = selectInfo.view.type;
     const startDate = new Date(selectInfo.start);
-    let endDate = new Date(selectInfo.end);
-    let allDay = false;
+    const endDate = new Date(selectInfo.end);
+    const allDay = selectInfo.allDay || selectInfo.view.type === 'dayGridMonth';
 
-    // Check if selection is in the all-day slot or in month view
-    if (view === 'dayGridMonth' || selectInfo.allDay) {
-      allDay = true;
-      // For all-day events, ensure end date is set to end of the day
-      endDate = new Date(endDate.getTime() - 1); // Subtract 1ms to keep it on the same day
-    } else {
-      // For regular time slots, set end time to 1 hour after start
-      endDate = new Date(startDate);
-      endDate.setHours(startDate.getHours() + 1);
-    }
-
-    openModal({
+    const newEvent = {
       id: '',
       title: '',
-      start: formatDateForInput(startDate),
-      end: formatDateForInput(endDate),
+      start: allDay ? setAllDayTimes(startDate.toISOString()) : formatDateForInput(startDate),
+      end: allDay ? setAllDayTimes(startDate.toISOString(), true) : formatDateForInput(endDate),
       allDay,
-    });
+    };
+
+    openModal(newEvent);
   };
 
   const handleEventClick = (eventInfo: any) => {
-    const startDate = new Date(eventInfo.event.start);
-    const endDate = new Date(eventInfo.event.end || startDate);
-
-    openModal({
+    const event = {
       id: eventInfo.event.id,
       title: eventInfo.event.title,
-      start: formatDateForInput(startDate),
-      end: formatDateForInput(endDate),
+      start: eventInfo.event.allDay ? setAllDayTimes(eventInfo.event.start.toISOString()) : formatDateForInput(eventInfo.event.start),
+      end: eventInfo.event.allDay ? setAllDayTimes(eventInfo.event.end?.toISOString() || eventInfo.event.start.toISOString(), true) : formatDateForInput(eventInfo.event.end || eventInfo.event.start),
       allDay: eventInfo.event.allDay,
+    };
+
+    openModal(event);
+  };
+
+  const handleAllDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedEvent) return;
+
+    const isAllDay = e.target.checked;
+    const startDate = new Date(selectedEvent.start);
+    const endDate = new Date(selectedEvent.end);
+
+    setSelectedEvent({
+      ...selectedEvent,
+      allDay: isAllDay,
+      start: isAllDay ? setAllDayTimes(startDate.toISOString()) : selectedEvent.start,
+      end: isAllDay ? setAllDayTimes(startDate.toISOString(), true) : selectedEvent.end,
     });
   };
 
@@ -380,9 +393,7 @@ const TaskCalendar = () => {
               <input
                 type="checkbox"
                 checked={selectedEvent?.allDay || false}
-                onChange={(e) =>
-                  setSelectedEvent((prev) => (prev ? { ...prev, allDay: e.target.checked } : null))
-                }
+                onChange={handleAllDayChange}
               />
               All Day Event
             </label>
@@ -412,22 +423,22 @@ const TaskCalendar = () => {
             </div>
             <div className="button-group">
               <button type="submit" className="button button-primary">
-                {selectedEvent?.id ? 'Update Event' : 'Create Event'}
+              {selectedEvent?.id ? 'Update Event' : 'Create Event'}
+            </button>
+            {selectedEvent?.id && (
+              <button type="button" onClick={handleEventDelete} className="button button-danger">
+                Delete Event
               </button>
-              {selectedEvent?.id && (
-                <button type="button" onClick={handleEventDelete} className="button button-danger">
-                  Delete Event
-                </button>
-              )}
-              <button type="button" onClick={closeModal} className="button button-secondary">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
-    </div>
-  );
+            )}
+            <button type="button" onClick={closeModal} className="button button-secondary">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </Modal>
+  </div>
+);
 };
 
 export default TaskCalendar;
