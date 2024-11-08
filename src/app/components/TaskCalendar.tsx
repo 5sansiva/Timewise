@@ -1,6 +1,3 @@
-// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
-
-
 import React, { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -13,6 +10,7 @@ interface CalendarEvent {
   title: string;
   start: string;
   end: string;
+  allDay?: boolean;
 }
 
 const TaskCalendar = () => {
@@ -20,6 +18,7 @@ const TaskCalendar = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     let root = document.getElementById('modal-root');
@@ -44,6 +43,11 @@ const TaskCalendar = () => {
     fetchEvents();
   }, []);
 
+  const formatDateForInput = (date: Date): string => {
+    const pad = (num: number) => num.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
   const fetchEvents = async () => {
     try {
       const response = await fetch('/api/events');
@@ -53,35 +57,61 @@ const TaskCalendar = () => {
         title: event.title,
         start: formatDateForInput(new Date(event.start_time)),
         end: formatDateForInput(new Date(event.end_time)),
+        allDay: event.allDay,
       })));
     } catch (error) {
       console.error('Error fetching events:', error);
     }
   };
 
-  const formatDateForInput = (date: Date): string => {
-    const pad = (num: number) => num.toString().padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  };
-
   const openModal = (event: CalendarEvent | null) => {
     setSelectedEvent(event);
     setIsModalOpen(true);
+    setErrorMessage('');
   };
 
   const closeModal = () => {
     setSelectedEvent(null);
     setIsModalOpen(false);
+    setErrorMessage('');
+  };
+
+  const validateEventTimes = (start: string, end: string): boolean => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return startDate < endDate;
   };
 
   const handleEventSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    
+    if (!selectedEvent?.start || !selectedEvent?.end) {
+      setErrorMessage('Start and end times are required');
+      return;
+    }
+
+    // Skip time validation for all-day events
+    if (!selectedEvent.allDay && !validateEventTimes(selectedEvent.start, selectedEvent.end)) {
+      setErrorMessage('End time must be after start time');
+      return;
+    }
+
     const method = selectedEvent?.id ? 'PUT' : 'POST';
     const url = selectedEvent?.id ? `/api/events/${selectedEvent.id}` : '/api/events/create';
+
+    // Adjust end date for all-day events to include the full day
+    let adjustedEndDate = selectedEvent.end;
+    if (selectedEvent.allDay) {
+      const endDate = new Date(selectedEvent.end);
+      endDate.setHours(23, 59, 59, 999);
+      adjustedEndDate = formatDateForInput(endDate);
+    }
+
     const body = JSON.stringify({
       title: selectedEvent?.title,
       start_time: selectedEvent?.start,
-      end_time: selectedEvent?.end,
+      end_time: adjustedEndDate,
+      allDay: selectedEvent?.allDay,
     });
 
     try {
@@ -91,29 +121,30 @@ const TaskCalendar = () => {
         body,
       });
       const newEvent = await response.json();
+      
+      const formattedEvent = {
+        id: newEvent.id.toString(),
+        title: newEvent.title,
+        start: formatDateForInput(new Date(newEvent.start_time)),
+        end: formatDateForInput(new Date(newEvent.end_time)),
+        allDay: newEvent.allDay,
+      };
+
       if (method === 'POST') {
-        setEvents((prev) => [...prev, { 
-          ...newEvent, 
-          id: newEvent.id.toString(),
-          start: formatDateForInput(new Date(newEvent.start_time)),
-          end: formatDateForInput(new Date(newEvent.end_time)),
-        }]);
+        setEvents(prev => [...prev, formattedEvent]);
       } else {
-        setEvents((prev) =>
-          prev.map((event) => (
-            event.id === newEvent.id 
-              ? {
-                  ...newEvent,
-                  start: formatDateForInput(new Date(newEvent.start_time)),
-                  end: formatDateForInput(new Date(newEvent.end_time)),
-                }
-              : event
-          ))
+        // Immediately update the events state for edits
+        setEvents(prev => 
+          prev.map(event => 
+            event.id === formattedEvent.id ? formattedEvent : event
+          )
         );
       }
+      
       closeModal();
     } catch (error) {
       console.error('Error saving event:', error);
+      setErrorMessage('Failed to save event. Please try again.');
     }
   };
 
@@ -125,6 +156,7 @@ const TaskCalendar = () => {
         closeModal();
       } catch (error) {
         console.error('Error deleting event:', error);
+        setErrorMessage('Failed to delete event. Please try again.');
       }
     }
   };
@@ -133,14 +165,15 @@ const TaskCalendar = () => {
     const view = selectInfo.view.type;
     const startDate = new Date(selectInfo.start);
     let endDate = new Date(selectInfo.end);
+    let allDay = false;
 
-    // For month view, set default times
-    if (view === 'dayGridMonth') {
-      startDate.setHours(9, 0, 0); // Set to 9:00 AM
-      endDate = new Date(startDate);
-      endDate.setHours(10, 0, 0); // Set to 10:00 AM
+    // Check if selection is in the all-day slot or in month view
+    if (view === 'dayGridMonth' || selectInfo.allDay) {
+      allDay = true;
+      // For all-day events, ensure end date is set to end of the day
+      endDate = new Date(endDate.getTime() - 1); // Subtract 1ms to keep it on the same day
     } else {
-      // For week/day view, set end time to 1 hour after start
+      // For regular time slots, set end time to 1 hour after start
       endDate = new Date(startDate);
       endDate.setHours(startDate.getHours() + 1);
     }
@@ -150,18 +183,20 @@ const TaskCalendar = () => {
       title: '',
       start: formatDateForInput(startDate),
       end: formatDateForInput(endDate),
+      allDay,
     });
   };
 
   const handleEventClick = (eventInfo: any) => {
     const startDate = new Date(eventInfo.event.start);
-    const endDate = new Date(eventInfo.event.end);
+    const endDate = new Date(eventInfo.event.end || startDate);
 
     openModal({
       id: eventInfo.event.id,
       title: eventInfo.event.title,
       start: formatDateForInput(startDate),
       end: formatDateForInput(endDate),
+      allDay: eventInfo.event.allDay,
     });
   };
 
@@ -169,7 +204,134 @@ const TaskCalendar = () => {
 
   return (
     <div className="calendar-container bg-light-gray p-4 rounded-lg shadow">
-      {/* Your existing styles here */}
+      <style>
+        {`
+          /* Calendar Styles */
+          .calendar-container {
+            background-color: #f7f7f7;
+          }
+          .fc-theme-standard td, 
+          .fc-theme-standard th {
+            border-color: #dcdcdc;
+          }
+          .fc-daygrid-day {
+            background-color: white;
+          }
+          .fc-day-today {
+            background-color: #e2e6e9 !important;
+          }
+          .fc-button-primary {
+            background-color: #357edd !important;
+            border-color: #357edd !important;
+          }
+          .fc-event {
+            background-color: #ffcc00;
+            border-color: #ff9900;
+          }
+          
+          /* Ensure all-day events stay at the top */
+          .fc-timegrid-event.fc-event-all-day {
+            background-color: #4a90e2;
+            border-color: #357abd;
+          }
+          
+          .fc-timegrid-axis-cushion {
+            background-color: #f8f9fa;
+          }
+
+          /* Modal Styles */
+          .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+          }
+
+          .modal {
+            position: relative;
+            background: #1e1e1e;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 500px;
+            width: 90%;
+            color: white;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
+          }
+
+          .error-message {
+            color: #ef4444;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+          }
+
+          /* Form Styles */
+          .form-input {
+            width: 100%;
+            padding: 0.6rem;
+            margin-bottom: 1rem;
+            border: 1px solid #bdbdbd;
+            border-radius: 0.375rem;
+            background-color: #333;
+            color: white;
+          }
+
+          .form-label {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            color: white;
+            margin-bottom: 0.5rem;
+          }
+
+          .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+          }
+
+          h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 1.5rem;
+          }
+
+          .button-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+          }
+
+          .button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+          }
+
+          .button-primary {
+            background-color: #3b82f6;
+            color: white;
+          }
+
+          .button-danger {
+            background-color: #ef4444;
+            color: white;
+          }
+
+          .button-secondary {
+            background-color: #6b7280;
+            color: white;
+          }
+        `}
+      </style>
 
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -186,6 +348,10 @@ const TaskCalendar = () => {
         height="auto"
         select={handleDateSelect}
         eventClick={handleEventClick}
+        allDaySlot={true}
+        allDayText="All Day"
+        slotMinTime="00:00:00"
+        slotMaxTime="24:00:00"
       />
 
       <Modal 
@@ -196,6 +362,7 @@ const TaskCalendar = () => {
       >
         <div className="modal-content">
           <h2>{selectedEvent?.id ? 'Edit Event' : 'Create Event'}</h2>
+          {errorMessage && <div className="error-message">{errorMessage}</div>}
           <form onSubmit={handleEventSubmit}>
             <div>
               <label className="form-label">Title:</label>
@@ -209,6 +376,16 @@ const TaskCalendar = () => {
                 required
               />
             </div>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={selectedEvent?.allDay || false}
+                onChange={(e) =>
+                  setSelectedEvent((prev) => (prev ? { ...prev, allDay: e.target.checked } : null))
+                }
+              />
+              All Day Event
+            </label>
             <div>
               <label className="form-label">Start Date:</label>
               <input
