@@ -10,8 +10,19 @@ interface CalendarEvent {
   title: string;
   start: string;
   end: string;
-  allDay?: boolean;
+  allDay: boolean;
 }
+
+interface DropInfo {
+  event: CalendarEvent;
+  oldStart: string;
+  oldEnd: string;
+  newStart: string;
+  newEnd: string;
+  oldAllDay: boolean;
+  newAllDay: boolean;
+}
+
 
 const TaskCalendar = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -19,7 +30,10 @@ const TaskCalendar = () => {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [dropInfo, setDropInfo] = useState<DropInfo | null>(null);
+  const [isDropConfirmOpen, setIsDropConfirmOpen] = useState(false);
 
+  // ... (keep existing useEffect hooks and helper functions)
   useEffect(() => {
     let root = document.getElementById('modal-root');
     
@@ -61,9 +75,9 @@ const TaskCalendar = () => {
       setEvents(data.map((event: any) => ({
         id: event.id.toString(),
         title: event.title,
-        start: event.allDay ? setAllDayTimes(event.start_time) : formatDateForInput(new Date(event.start_time)),
-        end: event.allDay ? setAllDayTimes(event.end_time, true) : formatDateForInput(new Date(event.end_time)),
-        allDay: event.allDay,
+        start: event.all_day ? setAllDayTimes(event.start_time) : formatDateForInput(new Date(event.start_time)),
+        end: event.all_day ? setAllDayTimes(event.end_time, true) : formatDateForInput(new Date(event.end_time)),
+        allDay: event.all_day,
       })));
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -116,7 +130,7 @@ const TaskCalendar = () => {
     const eventToSave = {
       ...selectedEvent,
       start: selectedEvent.allDay ? setAllDayTimes(selectedEvent.start) : selectedEvent.start,
-      end: selectedEvent.allDay ? setAllDayTimes(selectedEvent.start, true) : selectedEvent.end, // end same day at 23:59
+      end: selectedEvent.allDay ? setAllDayTimes(selectedEvent.end, true) : selectedEvent.end,
     };
 
     try {
@@ -127,7 +141,8 @@ const TaskCalendar = () => {
           title: eventToSave.title,
           start_time: eventToSave.start,
           end_time: eventToSave.end,
-          allDay: eventToSave.allDay,
+          all_day: eventToSave.allDay, // Make sure to send all_day to the backend
+          // ... (other fields remain the same)
         }),
       });
       
@@ -135,9 +150,9 @@ const TaskCalendar = () => {
       const formattedEvent = {
         id: newEvent.id.toString(),
         title: newEvent.title,
-        start: newEvent.allDay ? setAllDayTimes(newEvent.start_time) : formatDateForInput(new Date(newEvent.start_time)),
-        end: newEvent.allDay ? setAllDayTimes(newEvent.end_time, true) : formatDateForInput(new Date(newEvent.end_time)),
-        allDay: newEvent.allDay,
+        start: newEvent.all_day ? setAllDayTimes(newEvent.start_time) : formatDateForInput(new Date(newEvent.start_time)),
+        end: newEvent.all_day ? setAllDayTimes(newEvent.end_time, true) : formatDateForInput(new Date(newEvent.end_time)),
+        allDay: newEvent.all_day,
       };
 
       if (method === 'POST') {
@@ -156,6 +171,7 @@ const TaskCalendar = () => {
       setErrorMessage('Failed to save event. Please try again.');
     }
   };
+
 
   const handleEventDelete = async () => {
     if (selectedEvent?.id) {
@@ -213,10 +229,99 @@ const TaskCalendar = () => {
     });
   };
 
+  const handleEventDrop = async (dropEventInfo: any) => {
+    const event = dropEventInfo.event;
+    const oldEvent = dropEventInfo.oldEvent;
+    
+    // Calculate proper end time when converting from all-day to timed event
+    let newEnd;
+    if (oldEvent.allDay && !event.allDay) {
+      // If converting from all-day to timed event, set end time to 1 hour after start
+      const startDate = new Date(event.start);
+      const endDate = new Date(startDate);
+      endDate.setHours(startDate.getHours() + 1);
+      newEnd = endDate;
+    } else {
+      newEnd = event.end || event.start;
+    }
+
+    const dropInfoData = {
+      event: {
+        id: event.id,
+        title: event.title,
+        start: event.allDay ? setAllDayTimes(event.start.toISOString()) : formatDateForInput(event.start),
+        end: event.allDay ? setAllDayTimes(event.start.toISOString(), true) : formatDateForInput(newEnd),
+        allDay: event.allDay,
+      },
+      oldStart: oldEvent.allDay ? setAllDayTimes(oldEvent.start.toISOString()) : formatDateForInput(oldEvent.start),
+      oldEnd: oldEvent.allDay ? setAllDayTimes(oldEvent.end?.toISOString() || oldEvent.start.toISOString(), true) : formatDateForInput(oldEvent.end || oldEvent.start),
+      newStart: event.allDay ? setAllDayTimes(event.start.toISOString()) : formatDateForInput(event.start),
+      newEnd: event.allDay ? setAllDayTimes(event.start.toISOString(), true) : formatDateForInput(newEnd),
+      oldAllDay: oldEvent.allDay,
+      newAllDay: event.allDay
+    };
+
+    setDropInfo(dropInfoData);
+    setIsDropConfirmOpen(true);
+
+    // Return false to prevent the default drop behavior
+    dropEventInfo.revert();
+  };
+
+  const formatEventDateTime = (dateString: string, isAllDay: boolean) => {
+    const date = new Date(dateString);
+    if (isAllDay) {
+      return `${date.toLocaleDateString()} All Day`;
+    }
+    return date.toLocaleString();
+  };
+
+  const handleConfirmDrop = async () => {
+    if (!dropInfo) return;
+
+    try {
+      const response = await fetch(`/api/events/${dropInfo.event.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: dropInfo.event.title,
+          start_time: dropInfo.newStart,
+          end_time: dropInfo.newEnd,
+          all_day: dropInfo.event.allDay,
+        }),
+      });
+
+      const updatedEvent = await response.json();
+      const formattedEvent = {
+        id: updatedEvent.id.toString(),
+        title: updatedEvent.title,
+        start: updatedEvent.all_day ? setAllDayTimes(updatedEvent.start_time) : formatDateForInput(new Date(updatedEvent.start_time)),
+        end: updatedEvent.all_day ? setAllDayTimes(updatedEvent.end_time, true) : formatDateForInput(new Date(updatedEvent.end_time)),
+        allDay: updatedEvent.all_day,
+      };
+
+      setEvents(prev => prev.map(event => 
+        event.id === formattedEvent.id ? formattedEvent : event
+      ));
+
+      setIsDropConfirmOpen(false);
+      setDropInfo(null);
+    } catch (error) {
+      console.error('Error updating event:', error);
+      setErrorMessage('Failed to update event. Please try again.');
+    }
+  };
+
+  const handleCancelDrop = () => {
+    setIsDropConfirmOpen(false);
+    setDropInfo(null);
+  };
+
   if (!modalRoot) return null;
 
   return (
     <div className="calendar-container bg-light-gray p-4 rounded-lg shadow">
+      {/* ... (keep existing styles) ... */}
       <style>
         {`
           /* Calendar Styles */
@@ -361,12 +466,14 @@ const TaskCalendar = () => {
         height="auto"
         select={handleDateSelect}
         eventClick={handleEventClick}
+        eventDrop={handleEventDrop}
         allDaySlot={true}
         allDayText="All Day"
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
       />
 
+      {/* Existing Modal ... */}
       <Modal 
         isOpen={isModalOpen} 
         onRequestClose={closeModal}
@@ -437,8 +544,46 @@ const TaskCalendar = () => {
         </form>
       </div>
     </Modal>
-  </div>
-);
+
+    <Modal 
+    isOpen={isDropConfirmOpen}
+    onRequestClose={handleCancelDrop}
+    className="modal"
+    overlayClassName="modal-overlay"
+  >
+    <div className="modal-content">
+      <h2>Update Event Time?</h2>
+      {dropInfo && (
+        <div className="mb-4">
+          <p className="mb-2">Do you want to move "{dropInfo.event.title}" to the new time?</p>
+          <div className="text-sm">
+            <p className="mb-1">From: {formatEventDateTime(dropInfo.oldStart, dropInfo.oldAllDay)}</p>
+            <p>To: {formatEventDateTime(dropInfo.newStart, dropInfo.newAllDay)}</p>
+          </div>
+        </div>
+      )}
+      <div className="button-group">
+        <button
+          type="button"
+          onClick={handleConfirmDrop}
+          className="button button-primary"
+        >
+          Confirm
+        </button>
+        <button
+          type="button"
+          onClick={handleCancelDrop}
+          className="button button-secondary"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </Modal>
+    </div>
+  );
 };
 
 export default TaskCalendar;
+
+
