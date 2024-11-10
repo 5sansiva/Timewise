@@ -20,11 +20,6 @@ When processing dates and times:
 - Casual time formats: "10am", "3:30pm", "noon"
 - Default durations: 1 hour for appointments/meetings when not specified
 
-Carefully extract the timeframe for searches:
-- "tomorrow", "today", "next week", "this week" should set appropriate timeframe
-- For specific dates, use "specific_date" timeframe and include the date
-- When no timeframe is specified, default to "future" to search upcoming events
-
 Support these operations:
 
 1. Adding events (Keywords: add, schedule, create, book, set up, make):
@@ -39,26 +34,38 @@ Support these operations:
      }
    }}
 
-3. Moving events (Keywords: move, shift, reschedule):
-   {"move": {
-     "search": {"title": string, "date"?: "YYYY-MM-DD"},
-     "to_date": "YYYY-MM-DD"
+3. Updating events (Keywords: change, update, modify, edit, rename, reschedule):
+   {"update": {
+     "search": {
+       "title": string,
+       "timeframe": "future" | "today" | "tomorrow" | "this_week" | "next_week" | "specific_date",
+       "date"?: "YYYY-MM-DD"
+     },
+     "changes": {
+       "title"?: string,
+       "start_time"?: ISO8601,
+       "end_time"?: ISO8601,
+       "all_day"?: boolean
+     }
    }}
 
 4. Listing events (Keywords: show, list, what's on, what do I have):
    {"list": {"timeframe": "today" | "tomorrow" | "this_week" | "next_week" | "specific_date", "date"?: "YYYY-MM-DD"}}
 
 Examples of correct parsing:
-"Delete the 'my birthday' event scheduled the day after tomorrow" →
-{"remove": {"search": {"title": "my birthday", "timeframe": "specific_date", "date": "YYYY-MM-DD"}}}
+"Change the name of the 'doctor appointment' tomorrow to 'medical checkup'" →
+{"update": {
+  "search": {"title": "doctor appointment", "timeframe": "tomorrow"},
+  "changes": {"title": "medical checkup"}
+}}
 
-"Cancel tomorrow's meeting" →
-{"remove": {"search": {"title": "meeting", "timeframe": "tomorrow"}}}
+"Make tomorrow's meeting an all-day event" →
+{"update": {
+  "search": {"title": "meeting", "timeframe": "tomorrow"},
+  "changes": {"all_day": true}
+}}
 
-"Delete that event from next week" →
-{"remove": {"search": {"title": "event", "timeframe": "next_week"}}}
-
-Note: When users provide quoted text (e.g., 'my birthday'), use that exact text for the title search.`;
+Note: For updates, search for the most specific match possible using the provided title and timeframe.`;
 
 export async function POST(req) {
   if (!process.env.OPENAI_API_KEY) {
@@ -102,7 +109,113 @@ export async function POST(req) {
       );
     }
 
-    // Handle remove operation with your original working logic
+    // Handle update operation
+    if (parsedResponse.update) {
+      const { search, changes } = parsedResponse.update;
+      let query = 'SELECT * FROM events WHERE LOWER(title) LIKE LOWER($1)';
+      const values = [`%${search.title}%`];
+      let paramCount = 2;
+
+      // Add timeframe conditions
+      if (search.timeframe === 'specific_date' && search.date) {
+        query += ` AND DATE(start_time) = $${paramCount}`;
+        values.push(search.date);
+        paramCount++;
+      } else {
+        switch (search.timeframe) {
+          case 'today':
+            query += ` AND DATE(start_time) = CURRENT_DATE`;
+            break;
+          case 'tomorrow':
+            query += ` AND DATE(start_time) = CURRENT_DATE + interval '1 day'`;
+            break;
+          case 'this_week':
+            query += ` AND DATE(start_time) >= date_trunc('week', CURRENT_DATE)
+                      AND DATE(start_time) < date_trunc('week', CURRENT_DATE) + interval '7 days'`;
+            break;
+          case 'next_week':
+            query += ` AND DATE(start_time) >= date_trunc('week', CURRENT_DATE + interval '7 days')
+                      AND DATE(start_time) < date_trunc('week', CURRENT_DATE) + interval '14 days'`;
+            break;
+          default:
+            query += ` AND start_time >= CURRENT_DATE`;
+        }
+      }
+
+      query += ' ORDER BY start_time ASC LIMIT 1';
+
+      // First find the event
+      const searchResult = await pool.query(query, values);
+      
+      if (searchResult.rowCount === 0) {
+        return new Response(
+          JSON.stringify({ 
+            response: `No event found matching "${search.title}" for the specified timeframe.` 
+          }), 
+          { status: 404 }
+        );
+      }
+
+      const event = searchResult.rows[0];
+      
+      // Build update query
+      const updateValues = [event.id];
+      const updateClauses = [];
+      paramCount = 2;
+
+      if (changes.title) {
+        updateClauses.push(`title = $${paramCount}`);
+        updateValues.push(changes.title);
+        paramCount++;
+      }
+      
+      if (changes.start_time) {
+        updateClauses.push(`start_time = $${paramCount}`);
+        updateValues.push(changes.start_time);
+        paramCount++;
+      }
+      
+      if (changes.end_time) {
+        updateClauses.push(`end_time = $${paramCount}`);
+        updateValues.push(changes.end_time);
+        paramCount++;
+      }
+      
+      if (changes.all_day !== undefined) {
+        updateClauses.push(`all_day = $${paramCount}`);
+        updateValues.push(changes.all_day);
+        paramCount++;
+      }
+
+      const updateQuery = `
+        UPDATE events 
+        SET ${updateClauses.join(', ')}, updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+
+      const result = await pool.query(updateQuery, updateValues);
+      
+      const updatedEvent = result.rows[0];
+      let responseMessage = `Updated event: "${updatedEvent.title}"`;
+      if (changes.all_day) {
+        responseMessage += ' (now an all-day event)';
+      } else if (changes.start_time) {
+        responseMessage += ` for ${new Date(updatedEvent.start_time).toLocaleString()}`;
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          response: responseMessage,
+          event: updatedEvent
+        }), 
+        { status: 200 }
+      );
+    }
+
+    // [Rest of your existing code for other operations remains the same...]
+
+    // ... handle other operations (add, remove, list) as before ...
     if (parsedResponse.remove) {
       const { search } = parsedResponse.remove;
       let query = 'DELETE FROM events WHERE LOWER(title) LIKE LOWER($1)';
@@ -180,55 +293,6 @@ export async function POST(req) {
       }
     }
 
-    // Rest of your original code for other operations...
-    if (parsedResponse.update) {
-      const { search, changes } = parsedResponse.update;
-      
-      // First find the event
-      const searchResult = await pool.query(
-        `SELECT * FROM events 
-         WHERE LOWER(title) LIKE LOWER($1) 
-         AND DATE(start_time) = $2`,
-        [`%${search.title}%`, search.date]
-      );
-      
-      if (searchResult.rowCount === 0) {
-        return new Response(
-          JSON.stringify({ 
-            response: `No event found matching "${search.title}" on ${search.date}.` 
-          }), 
-          { status: 404 }
-        );
-      }
-
-      const event = searchResult.rows[0];
-      const setClause = [];
-      const values = [event.id];
-      let paramCount = 2;
-
-      Object.entries(changes).forEach(([key, value]) => {
-        setClause.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
-      });
-
-      const query = `
-        UPDATE events 
-        SET ${setClause.join(', ')}, updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-      `;
-
-      const result = await pool.query(query, values);
-      
-      return new Response(
-        JSON.stringify({ 
-          response: `Updated "${event.title}" successfully.`,
-          event: result.rows[0]
-        }), 
-        { status: 200 }
-      );
-    }
 
     if (parsedResponse.add) {
       const { title, start_time, end_time, all_day } = parsedResponse.add;
@@ -343,6 +407,9 @@ export async function POST(req) {
       }), 
       { status: 400 }
     );
+
+
+
 
   } catch (error) {
     console.error("Error processing message:", error);
