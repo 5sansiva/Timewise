@@ -7,32 +7,30 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are a helpful calendar assistant that manages events and appointments. Convert casual natural language inputs into specific calendar commands in JSON format. You should understand various ways users might express dates and times, including:
+const SYSTEM_PROMPT = `You are a helpful calendar assistant that manages events and appointments. Convert casual natural language inputs into specific calendar commands in JSON format. You should understand various ways users might express dates, times, and event descriptions.
 
+When processing event titles:
+- For exact phrases in quotes (e.g., 'my birthday'), use the exact phrase as the title
+- For general descriptions, extract the key terms (e.g., "doctor appointment" from "that doctor appointment thing")
+- Preserve important words that help identify the event (e.g., "birthday", "meeting", "appointment")
+
+When processing dates and times:
 - Relative dates: "tomorrow", "next week", "this weekend", "day after tomorrow"
-- Time expressions: "morning", "afternoon", "evening"
+- Time expressions: "morning" (9:00 AM), "afternoon" (2:00 PM), "evening" (6:00 PM)
 - Casual time formats: "10am", "3:30pm", "noon"
-- Incomplete information: Assume reasonable defaults when time details are missing
-- Event modifications: Understand requests to modify duration, time, or other aspects of existing events
+- Default durations: 1 hour for appointments/meetings when not specified
 
-When specific times aren't provided:
-- For appointments/meetings: Assume 1 hour duration
-- For "morning" events: Default to 9:00 AM
-- For "afternoon" events: Default to 2:00 PM
-- For "evening" events: Default to 6:00 PM
+Carefully extract the timeframe for searches:
+- "tomorrow", "today", "next week", "this week" should set appropriate timeframe
+- For specific dates, use "specific_date" timeframe and include the date
+- When no timeframe is specified, default to "future" to search upcoming events
 
-Support the following operations:
+Support these operations:
 
 1. Adding events (Keywords: add, schedule, create, book, set up, make):
    {"add": {"title": string, "start_time": ISO8601, "end_time": ISO8601, "all_day": boolean}}
 
-2. Updating events (Keywords: update, change, modify, reschedule, make):
-   {"update": {
-     "search": {"title": string, "date"?: "YYYY-MM-DD"},
-     "changes": {"title"?: string, "start_time"?: ISO8601, "end_time"?: ISO8601, "all_day"?: boolean}
-   }}
-
-3. Removing events (Keywords: remove, delete, cancel):
+2. Removing events (Keywords: remove, delete, cancel):
    {"remove": {
      "search": {
        "title": string,
@@ -41,16 +39,26 @@ Support the following operations:
      }
    }}
 
-4. Moving events (Keywords: move, shift, reschedule):
+3. Moving events (Keywords: move, shift, reschedule):
    {"move": {
      "search": {"title": string, "date"?: "YYYY-MM-DD"},
      "to_date": "YYYY-MM-DD"
    }}
 
-5. Listing events (Keywords: show, list, what's on, what do I have):
+4. Listing events (Keywords: show, list, what's on, what do I have):
    {"list": {"timeframe": "today" | "tomorrow" | "this_week" | "next_week" | "specific_date", "date"?: "YYYY-MM-DD"}}
 
-Always include a timeframe in remove and list operations to help narrow down the search.`;
+Examples of correct parsing:
+"Delete the 'my birthday' event scheduled the day after tomorrow" →
+{"remove": {"search": {"title": "my birthday", "timeframe": "specific_date", "date": "YYYY-MM-DD"}}}
+
+"Cancel tomorrow's meeting" →
+{"remove": {"search": {"title": "meeting", "timeframe": "tomorrow"}}}
+
+"Delete that event from next week" →
+{"remove": {"search": {"title": "event", "timeframe": "next_week"}}}
+
+Note: When users provide quoted text (e.g., 'my birthday'), use that exact text for the title search.`;
 
 export async function POST(req) {
   if (!process.env.OPENAI_API_KEY) {
@@ -94,7 +102,85 @@ export async function POST(req) {
       );
     }
 
-    // Handle event updates with better search
+    // Handle remove operation with your original working logic
+    if (parsedResponse.remove) {
+      const { search } = parsedResponse.remove;
+      let query = 'DELETE FROM events WHERE LOWER(title) LIKE LOWER($1)';
+      const values = [`%${search.title}%`];
+      let paramCount = 2;
+
+      // Add timeframe conditions using your original logic
+      if (search.timeframe === 'specific_date' && search.date) {
+        query += ` AND DATE(start_time) = $${paramCount}`;
+        values.push(search.date);
+      } else {
+        switch (search.timeframe) {
+          case 'future':
+            query += ` AND start_time >= CURRENT_DATE`;
+            break;
+          case 'all':
+            // No additional date condition needed
+            break;
+          case 'today':
+            query += ` AND DATE(start_time) = CURRENT_DATE`;
+            break;
+          case 'tomorrow':
+            query += ` AND DATE(start_time) = CURRENT_DATE + interval '1 day'`;
+            break;
+          case 'this_week':
+            query += ` AND DATE(start_time) >= date_trunc('week', CURRENT_DATE)
+                      AND DATE(start_time) < date_trunc('week', CURRENT_DATE) + interval '7 days'`;
+            break;
+          case 'next_week':
+            query += ` AND DATE(start_time) >= date_trunc('week', CURRENT_DATE + interval '7 days')
+                      AND DATE(start_time) < date_trunc('week', CURRENT_DATE) + interval '14 days'`;
+            break;
+          default:
+            query += ` AND start_time >= CURRENT_DATE ORDER BY start_time ASC LIMIT 1`;
+        }
+      }
+
+      query += ' RETURNING *';
+      
+      try {
+        const result = await pool.query(query, values);
+        
+        if (result.rowCount === 0) {
+          return new Response(
+            JSON.stringify({ 
+              response: `No events found matching "${search.title}" for the specified timeframe.`,
+              status: 'not_found'
+            }), 
+            { status: 200 }
+          );
+        }
+
+        const deletedEvents = result.rows;
+        const eventDates = deletedEvents.map(event => 
+          new Date(event.start_time).toLocaleDateString()
+        ).join(', ');
+
+        return new Response(
+          JSON.stringify({ 
+            response: `Removed ${result.rowCount} event(s) matching "${search.title}" scheduled for ${eventDates}.`,
+            status: 'success'
+          }), 
+          { status: 200 }
+        );
+      } catch (dbError) {
+        console.error("Database error:", dbError);
+        return new Response(
+          JSON.stringify({ 
+            response: "There was an error accessing the calendar. Please try again.",
+            error: dbError.message,
+            status: 'error'
+          }), 
+          { status: 500 }
+        );
+      }
+    }
+
+    // Rest of your original code for other operations...
     if (parsedResponse.update) {
       const { search, changes } = parsedResponse.update;
       
@@ -144,7 +230,6 @@ export async function POST(req) {
       );
     }
 
-  
     if (parsedResponse.add) {
       const { title, start_time, end_time, all_day } = parsedResponse.add;
       
@@ -250,89 +335,7 @@ export async function POST(req) {
         { status: 200 }
       );
     }
-
-
     
-    // Improved remove operation
-    if (parsedResponse.remove) {
-      const { search } = parsedResponse.remove;
-      let query = 'DELETE FROM events WHERE LOWER(title) LIKE LOWER($1)';
-      const values = [`%${search.title}%`];
-      let paramCount = 2;
-
-      // Add timeframe conditions
-      if (search.timeframe === 'specific_date' && search.date) {
-        query += ` AND DATE(start_time) = $${paramCount}`;
-        values.push(search.date);
-      } else {
-        switch (search.timeframe) {
-          case 'future':
-            query += ` AND start_time >= CURRENT_DATE`;
-            break;
-          case 'all':
-            // No additional date condition needed
-            break;
-          case 'today':
-            query += ` AND DATE(start_time) = CURRENT_DATE`;
-            break;
-          case 'tomorrow':
-            query += ` AND DATE(start_time) = CURRENT_DATE + interval '1 day'`;
-            break;
-          case 'this_week':
-            query += ` AND DATE(start_time) >= date_trunc('week', CURRENT_DATE)
-                      AND DATE(start_time) < date_trunc('week', CURRENT_DATE) + interval '7 days'`;
-            break;
-          case 'next_week':
-            query += ` AND DATE(start_time) >= date_trunc('week', CURRENT_DATE + interval '7 days')
-                      AND DATE(start_time) < date_trunc('week', CURRENT_DATE) + interval '14 days'`;
-            break;
-          default:
-            query += ` AND start_time >= CURRENT_DATE ORDER BY start_time ASC LIMIT 1`;
-        }
-      }
-
-      query += ' RETURNING *';
-      
-      try {
-        const result = await pool.query(query, values);
-        
-        if (result.rowCount === 0) {
-          return new Response(
-            JSON.stringify({ 
-              response: `No events found matching "${search.title}" for the specified timeframe.`,
-              status: 'not_found'
-            }), 
-            { status: 200 }  // Changed from 404 to 200 to handle empty results better
-          );
-        }
-
-        const deletedEvents = result.rows;
-        const eventDates = deletedEvents.map(event => 
-          new Date(event.start_time).toLocaleDateString()
-        ).join(', ');
-
-        return new Response(
-          JSON.stringify({ 
-            response: `Removed ${result.rowCount} event(s) matching "${search.title}" scheduled for ${eventDates}.`,
-            status: 'success'
-          }), 
-          { status: 200 }
-        );
-      } catch (dbError) {
-        console.error("Database error:", dbError);
-        return new Response(
-          JSON.stringify({ 
-            response: "There was an error accessing the calendar. Please try again.",
-            error: dbError.message,
-            status: 'error'
-          }), 
-          { status: 500 }
-        );
-      }
-    }
-
-    // Rest of your existing code for other operations...
-    // (Keep your existing add, update, move, and list operations)
 
     return new Response(
       JSON.stringify({ 
