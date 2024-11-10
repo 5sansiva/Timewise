@@ -1,7 +1,5 @@
-/* Name: Venkat Sai Eshwar Varma Sagi (VXS210103) */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* globals.tsx */
+
 /* Title styling */
 .calendar-container h2,
 .calendar-title,

@@ -19,7 +19,7 @@ export default function HomePage() {
       <h2>Time Wise Calendar View</h2>
       
       {/* Display the TaskCalendar component here */}
-      <HomePage />
+      
     </div>
   );
 }
