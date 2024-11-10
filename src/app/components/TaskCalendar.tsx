@@ -1,10 +1,15 @@
+// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
+
+// Import necessary libraries and components
 import React, { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import Modal from 'react-modal';
+import ChatInterface from './ChatInterface';
 
+// Interface defining the structure of a calendar event
 interface CalendarEvent {
   id: string;
   title: string;
@@ -13,6 +18,7 @@ interface CalendarEvent {
   allDay: boolean;
 }
 
+// Interface defining the structure for drag-and-drop information
 interface DropInfo {
   event: CalendarEvent;
   oldStart: string;
@@ -23,29 +29,35 @@ interface DropInfo {
   newAllDay: boolean;
 }
 
-
+// Main TaskCalendar component
 const TaskCalendar = () => {
+  // State for managing calendar events
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  
+  // State for modal visibility and selected event
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  
+  // State for managing the modal root and error messages
   const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  
+  // State for handling drag-and-drop actions and confirmation modal
   const [dropInfo, setDropInfo] = useState<DropInfo | null>(null);
   const [isDropConfirmOpen, setIsDropConfirmOpen] = useState(false);
 
-  // ... (keep existing useEffect hooks and helper functions)
+  // Effect to set up the modal root element for accessibility
   useEffect(() => {
     let root = document.getElementById('modal-root');
-    
     if (!root) {
       root = document.createElement('div');
       root.id = 'modal-root';
       document.body.appendChild(root);
     }
-    
     Modal.setAppElement('#modal-root');
     setModalRoot(root);
 
+    // Clean up the modal root on unmount
     return () => {
       if (root && !root.childNodes.length) {
         document.body.removeChild(root);
@@ -53,21 +65,25 @@ const TaskCalendar = () => {
     };
   }, []);
 
+  // Fetch initial events when component mounts
   useEffect(() => {
     fetchEvents();
   }, []);
 
+  // Helper function to format dates to ISO string format for input fields
   const formatDateForInput = (date: Date): string => {
     const pad = (num: number) => num.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
+  // Helper function to set times for all-day events
   const setAllDayTimes = (date: string | Date, isEnd: boolean = false): string => {
     const d = new Date(date);
-    d.setHours(isEnd ? 23 : 0, isEnd ? 59 : 0, 0, 0); // Set to 23:59 for end time, 00:00 for start time
+    d.setHours(isEnd ? 23 : 0, isEnd ? 59 : 0, 0, 0);
     return formatDateForInput(d);
   };
 
+  // Function to fetch events from the backend API
   const fetchEvents = async () => {
     try {
       const response = await fetch('/api/events');
@@ -84,6 +100,7 @@ const TaskCalendar = () => {
     }
   };
 
+  // Function to open the modal and optionally populate with selected event data
   const openModal = (event: CalendarEvent | null) => {
     if (event) {
       const updatedEvent = {
@@ -99,18 +116,21 @@ const TaskCalendar = () => {
     setErrorMessage('');
   };
 
+  // Function to close the modal and clear selected event data
   const closeModal = () => {
     setSelectedEvent(null);
     setIsModalOpen(false);
     setErrorMessage('');
   };
 
+  // Function to validate if start time is before end time
   const validateEventTimes = (start: string, end: string): boolean => {
     const startDate = new Date(start);
     const endDate = new Date(end);
     return startDate < endDate;
   };
 
+  // Handle form submission to save or update an event
   const handleEventSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -141,8 +161,7 @@ const TaskCalendar = () => {
           title: eventToSave.title,
           start_time: eventToSave.start,
           end_time: eventToSave.end,
-          all_day: eventToSave.allDay, // Make sure to send all_day to the backend
-          // ... (other fields remain the same)
+          all_day: eventToSave.allDay,
         }),
       });
       
@@ -155,6 +174,7 @@ const TaskCalendar = () => {
         allDay: newEvent.all_day,
       };
 
+      // Update events state based on method (POST or PUT)
       if (method === 'POST') {
         setEvents(prev => [...prev, formattedEvent]);
       } else {
@@ -172,11 +192,14 @@ const TaskCalendar = () => {
     }
   };
 
-
+  // Function to delete an event
   const handleEventDelete = async () => {
     if (selectedEvent?.id) {
       try {
-        await fetch(`/api/events/${selectedEvent.id}`, { method: 'DELETE' });
+        const response = await fetch(`/api/events/${selectedEvent.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error('Failed to delete event from server');
+        }
         setEvents((prevEvents) => prevEvents.filter((event) => event.id !== selectedEvent.id));
         closeModal();
       } catch (error) {
@@ -186,6 +209,7 @@ const TaskCalendar = () => {
     }
   };
 
+  // Handle selection of date on the calendar for creating a new event
   const handleDateSelect = (selectInfo: any) => {
     const startDate = new Date(selectInfo.start);
     const endDate = new Date(selectInfo.end);
@@ -202,6 +226,7 @@ const TaskCalendar = () => {
     openModal(newEvent);
   };
 
+  // Handle clicking on an existing event to edit it
   const handleEventClick = (eventInfo: any) => {
     const event = {
       id: eventInfo.event.id,
@@ -214,6 +239,7 @@ const TaskCalendar = () => {
     openModal(event);
   };
 
+  // Handle checkbox change for all-day events
   const handleAllDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedEvent) return;
 
@@ -229,14 +255,13 @@ const TaskCalendar = () => {
     });
   };
 
+  // Handle drag-and-drop events on the calendar
   const handleEventDrop = async (dropEventInfo: any) => {
     const event = dropEventInfo.event;
     const oldEvent = dropEventInfo.oldEvent;
     
-    // Calculate proper end time when converting from all-day to timed event
     let newEnd;
     if (oldEvent.allDay && !event.allDay) {
-      // If converting from all-day to timed event, set end time to 1 hour after start
       const startDate = new Date(event.start);
       const endDate = new Date(startDate);
       endDate.setHours(startDate.getHours() + 1);
@@ -264,7 +289,6 @@ const TaskCalendar = () => {
     setDropInfo(dropInfoData);
     setIsDropConfirmOpen(true);
 
-    // Return false to prevent the default drop behavior
     dropEventInfo.revert();
   };
 
@@ -276,6 +300,7 @@ const TaskCalendar = () => {
     return date.toLocaleString();
   };
 
+  // Function to confirm the drag-and-drop event update
   const handleConfirmDrop = async () => {
     if (!dropInfo) return;
 
@@ -321,43 +346,17 @@ const TaskCalendar = () => {
 
   return (
     <div className="calendar-container bg-light-gray p-4 rounded-lg shadow">
-      {/* ... (keep existing styles) ... */}
       <style>
+        {/* Custom styles for the calendar and modals */}
         {`
-          /* Calendar Styles */
-          .calendar-container {
-            background-color: #f7f7f7;
-          }
-          .fc-theme-standard td, 
-          .fc-theme-standard th {
-            border-color: #dcdcdc;
-          }
-          .fc-daygrid-day {
-            background-color: white;
-          }
-          .fc-day-today {
-            background-color: #e2e6e9 !important;
-          }
-          .fc-button-primary {
-            background-color: #357edd !important;
-            border-color: #357edd !important;
-          }
-          .fc-event {
-            background-color: #ffcc00;
-            border-color: #ff9900;
-          }
-          
-          /* Ensure all-day events stay at the top */
-          .fc-timegrid-event.fc-event-all-day {
-            background-color: #4a90e2;
-            border-color: #357abd;
-          }
-          
-          .fc-timegrid-axis-cushion {
-            background-color: #f8f9fa;
-          }
-
-          /* Modal Styles */
+          .calendar-container { background-color: #f7f7f7; }
+          .fc-theme-standard td, .fc-theme-standard th { border-color: #dcdcdc; }
+          .fc-daygrid-day { background-color: white; }
+          .fc-day-today { background-color: #e2e6e9 !important; }
+          .fc-button-primary { background-color: #357edd !important; border-color: #357edd !important; }
+          .fc-event { background-color: #ffcc00; border-color: #ff9900; }
+          .fc-timegrid-event.fc-event-all-day { background-color: #4a90e2; border-color: #357abd; }
+          .fc-timegrid-axis-cushion { background-color: #f8f9fa; }
           .modal-overlay {
             position: fixed;
             top: 0;
@@ -370,7 +369,6 @@ const TaskCalendar = () => {
             justify-content: center;
             z-index: 1000;
           }
-
           .modal {
             position: relative;
             background: #1e1e1e;
@@ -381,14 +379,7 @@ const TaskCalendar = () => {
             color: white;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
           }
-
-          .error-message {
-            color: #ef4444;
-            margin-bottom: 1rem;
-            font-size: 0.875rem;
-          }
-
-          /* Form Styles */
+          .error-message { color: #ef4444; margin-bottom: 1rem; font-size: 0.875rem; }
           .form-input {
             width: 100%;
             padding: 0.6rem;
@@ -398,56 +389,14 @@ const TaskCalendar = () => {
             background-color: #333;
             color: white;
           }
-
-          .form-label {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            font-weight: 600;
-            font-size: 1rem;
-            color: white;
-            margin-bottom: 0.5rem;
-          }
-
-          .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-          }
-
-          h2 {
-            font-size: 1.75rem;
-            font-weight: 600;
-            color: white;
-            margin-bottom: 1.5rem;
-          }
-
-          .button-group {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-          }
-
-          .button {
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            font-weight: 500;
-            cursor: pointer;
-          }
-
-          .button-primary {
-            background-color: #3b82f6;
-            color: white;
-          }
-
-          .button-danger {
-            background-color: #ef4444;
-            color: white;
-          }
-
-          .button-secondary {
-            background-color: #6b7280;
-            color: white;
-          }
+          .form-label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-weight: 600; font-size: 1rem; color: white; margin-bottom: 0.5rem; }
+          .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+          h2 { font-size: 1.75rem; font-weight: 600; color: white; margin-bottom: 1.5rem; }
+          .button-group { display: flex; gap: 0.5rem; margin-top: 1.5rem; }
+          .button { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer; }
+          .button-primary { background-color: #3b82f6; color: white; }
+          .button-danger { background-color: #ef4444; color: white; }
+          .button-secondary { background-color: #6b7280; color: white; }
         `}
       </style>
 
@@ -473,7 +422,6 @@ const TaskCalendar = () => {
         slotMaxTime="24:00:00"
       />
 
-      {/* Existing Modal ... */}
       <Modal 
         isOpen={isModalOpen} 
         onRequestClose={closeModal}
@@ -546,44 +494,75 @@ const TaskCalendar = () => {
     </Modal>
 
     <Modal 
-    isOpen={isDropConfirmOpen}
-    onRequestClose={handleCancelDrop}
-    className="modal"
-    overlayClassName="modal-overlay"
-  >
-    <div className="modal-content">
-      <h2>Update Event Time?</h2>
-      {dropInfo && (
-        <div className="mb-4">
-          <p className="mb-2">Do you want to move "{dropInfo.event.title}" to the new time?</p>
-          <div className="text-sm">
-            <p className="mb-1">From: {formatEventDateTime(dropInfo.oldStart, dropInfo.oldAllDay)}</p>
-            <p>To: {formatEventDateTime(dropInfo.newStart, dropInfo.newAllDay)}</p>
+      isOpen={isDropConfirmOpen}
+      onRequestClose={handleCancelDrop}
+      className="modal"
+      overlayClassName="modal-overlay"
+    >
+      <div className="modal-content">
+        <h2>Update Event Time?</h2>
+        {dropInfo && (
+          <div className="mb-4">
+            <p className="mb-2">Do you want to move "{dropInfo.event.title}" to the new time?</p>
+            <div className="text-sm">
+              <p className="mb-1">From: {formatEventDateTime(dropInfo.oldStart, dropInfo.oldAllDay)}</p>
+              <p>To: {formatEventDateTime(dropInfo.newStart, dropInfo.newAllDay)}</p>
+            </div>
           </div>
+        )}
+        <div className="button-group">
+          <button
+            type="button"
+            onClick={handleConfirmDrop}
+            className="button button-primary"
+          >
+            Confirm
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelDrop}
+            className="button button-secondary"
+          >
+            Cancel
+          </button>
         </div>
-      )}
-      <div className="button-group">
-        <button
-          type="button"
-          onClick={handleConfirmDrop}
-          className="button button-primary"
-        >
-          Confirm
-        </button>
-        <button
-          type="button"
-          onClick={handleCancelDrop}
-          className="button button-secondary"
-        >
-          Cancel
-        </button>
       </div>
-    </div>
-  </Modal>
-    </div>
+    </Modal>
+    
+    <ChatInterface 
+  onEventCreate={(event: {
+    id: string | number;
+    title: string;
+    start_time: string;
+    end_time: string;
+    all_day: boolean;
+  }) => {
+    setEvents((prev: CalendarEvent[]) => [
+      ...prev,
+      {
+        id: event.id.toString(),
+        title: event.title,
+        start: event.all_day ? setAllDayTimes(event.start_time) : formatDateForInput(new Date(event.start_time)),
+        end: event.all_day ? setAllDayTimes(event.end_time, true) : formatDateForInput(new Date(event.end_time)),
+        allDay: event.all_day,
+      },
+    ]);
+  }}
+  onEventDelete={({ message }: { message: string }) => {
+    // Extract the event title from the deletion message
+    const titleMatch = message.match(/matching "(.*?)"/);
+    if (titleMatch && titleMatch[1]) {
+      const deletedTitle = titleMatch[1];
+      // Remove the deleted event(s) from your events state
+      setEvents((prev: CalendarEvent[]) => 
+        prev.filter(event => !event.title.toLowerCase().includes(deletedTitle.toLowerCase()))
+      );
+    }
+  }}
+/>
+  </div>
   );
 };
 
+// Export the TaskCalendar component as the default export
 export default TaskCalendar;
-
-

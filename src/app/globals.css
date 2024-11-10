@@ -1,7 +1,5 @@
 /* globals.tsx */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 /* Title styling */
 .calendar-container h2,
 .calendar-title,
