@@ -6,7 +6,9 @@
 "use client";
 
 // Importing TaskCalendar component to display the calendar on this page
-import TaskCalendar from './components/TaskCalendar';
+
+import Home from './components/home';
+
 
 // HomePage component: this is the main page where the calendar will be displayed
 export default function HomePage() {
@@ -16,7 +18,8 @@ export default function HomePage() {
       <h2>Time Wise Calendar View</h2>
       
       {/* Display the TaskCalendar component here */}
-      <TaskCalendar />
+     
+      <Home />
     </div>
   );
 }
