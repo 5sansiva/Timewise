@@ -1,12 +1,17 @@
-// src/app/api/chat/route.js
+// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
 
+// import the OpenAI library to use their API
 import OpenAI from 'openai';
+// import database connection pool
 import pool from '../../../../lib/db';
 
+// create new OpenAI instance with API key
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// define system prompt that tells GPT how to process calendar commands
+// this is the instruction set for the AI to understand natural language
 const SYSTEM_PROMPT = `You are a helpful calendar assistant that manages events and appointments. Convert casual natural language inputs into specific calendar commands in JSON format. You should understand various ways users might express dates, times, and event descriptions.
 
 When processing event titles:
@@ -67,7 +72,9 @@ Examples of correct parsing:
 
 Note: For updates, search for the most specific match possible using the provided title and timeframe.`;
 
+// main POST function that handles all calendar requests
 export async function POST(req) {
+  // check if OpenAI API key exists
   if (!process.env.OPENAI_API_KEY) {
     return new Response(
       JSON.stringify({ 
@@ -79,9 +86,12 @@ export async function POST(req) {
   }
 
   try {
+    // get message from request body
     const { message } = await req.json();
+    // get current time
     const now = new Date();
     
+    // send request to OpenAI to process the natural language
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -94,9 +104,11 @@ export async function POST(req) {
       temperature: 0.7
     });
 
+    // get response content and trim whitespace
     const content = completion.choices[0].message.content.trim();
     let parsedResponse;
     
+    // try to parse JSON response from OpenAI
     try {
       parsedResponse = JSON.parse(content);
     } catch (parseError) {
@@ -109,19 +121,22 @@ export async function POST(req) {
       );
     }
 
-    // Handle update operation
+    // handle update operations for calendar events
     if (parsedResponse.update) {
+      // get search criteria and changes to make
       const { search, changes } = parsedResponse.update;
+      // start building SQL query
       let query = 'SELECT * FROM events WHERE LOWER(title) LIKE LOWER($1)';
       const values = [`%${search.title}%`];
       let paramCount = 2;
 
-      // Add timeframe conditions
+      // add date/time conditions to query based on timeframe
       if (search.timeframe === 'specific_date' && search.date) {
         query += ` AND DATE(start_time) = $${paramCount}`;
         values.push(search.date);
         paramCount++;
       } else {
+        // handle different timeframe options
         switch (search.timeframe) {
           case 'today':
             query += ` AND DATE(start_time) = CURRENT_DATE`;
@@ -142,11 +157,13 @@ export async function POST(req) {
         }
       }
 
+      // limit to first matching event
       query += ' ORDER BY start_time ASC LIMIT 1';
 
-      // First find the event
+      // search for event in database
       const searchResult = await pool.query(query, values);
       
+      // if no event found, return error
       if (searchResult.rowCount === 0) {
         return new Response(
           JSON.stringify({ 
@@ -156,37 +173,43 @@ export async function POST(req) {
         );
       }
 
+      // get found event
       const event = searchResult.rows[0];
       
-      // Build update query
+      // prepare update query
       const updateValues = [event.id];
       const updateClauses = [];
       paramCount = 2;
 
+      // add title update if provided
       if (changes.title) {
         updateClauses.push(`title = $${paramCount}`);
         updateValues.push(changes.title);
         paramCount++;
       }
       
+      // add start time update if provided
       if (changes.start_time) {
         updateClauses.push(`start_time = $${paramCount}`);
         updateValues.push(changes.start_time);
         paramCount++;
       }
       
+      // add end time update if provided
       if (changes.end_time) {
         updateClauses.push(`end_time = $${paramCount}`);
         updateValues.push(changes.end_time);
         paramCount++;
       }
       
+      // add all-day flag update if provided
       if (changes.all_day !== undefined) {
         updateClauses.push(`all_day = $${paramCount}`);
         updateValues.push(changes.all_day);
         paramCount++;
       }
 
+      // create final update query
       const updateQuery = `
         UPDATE events 
         SET ${updateClauses.join(', ')}, updated_at = NOW()
@@ -194,8 +217,10 @@ export async function POST(req) {
         RETURNING *
       `;
 
+      // execute update query
       const result = await pool.query(updateQuery, updateValues);
       
+      // prepare response message
       const updatedEvent = result.rows[0];
       let responseMessage = `Updated event: "${updatedEvent.title}"`;
       if (changes.all_day) {
@@ -204,6 +229,7 @@ export async function POST(req) {
         responseMessage += ` for ${new Date(updatedEvent.start_time).toLocaleString()}`;
       }
 
+      // return success response
       return new Response(
         JSON.stringify({ 
           response: responseMessage,
@@ -213,26 +239,27 @@ export async function POST(req) {
       );
     }
 
-    // [Rest of your existing code for other operations remains the same...]
-
-    // ... handle other operations (add, remove, list) as before ...
+    // handle remove operations
     if (parsedResponse.remove) {
+      // get search criteria
       const { search } = parsedResponse.remove;
+      // start building delete query
       let query = 'DELETE FROM events WHERE LOWER(title) LIKE LOWER($1)';
       const values = [`%${search.title}%`];
       let paramCount = 2;
 
-      // Add timeframe conditions using your original logic
+      // add timeframe conditions to query
       if (search.timeframe === 'specific_date' && search.date) {
         query += ` AND DATE(start_time) = $${paramCount}`;
         values.push(search.date);
       } else {
+        // handle different timeframe options
         switch (search.timeframe) {
           case 'future':
             query += ` AND start_time >= CURRENT_DATE`;
             break;
           case 'all':
-            // No additional date condition needed
+            // no date filter needed
             break;
           case 'today':
             query += ` AND DATE(start_time) = CURRENT_DATE`;
@@ -253,11 +280,14 @@ export async function POST(req) {
         }
       }
 
+      // add returning clause to get deleted events
       query += ' RETURNING *';
       
       try {
+        // execute delete query
         const result = await pool.query(query, values);
         
+        // if no events found
         if (result.rowCount === 0) {
           return new Response(
             JSON.stringify({ 
@@ -268,6 +298,7 @@ export async function POST(req) {
           );
         }
 
+        // prepare response with deleted events info
         const deletedEvents = result.rows;
         const eventDates = deletedEvents.map(event => 
           new Date(event.start_time).toLocaleDateString()
@@ -293,14 +324,16 @@ export async function POST(req) {
       }
     }
 
-
+    // handle add operations
     if (parsedResponse.add) {
+      // get event details
       const { title, start_time, end_time, all_day } = parsedResponse.add;
       
-      // Validate the dates
+      // validate dates
       const startDate = new Date(start_time);
       const endDate = new Date(end_time);
       
+      // check if dates are valid
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         return new Response(
           JSON.stringify({ 
@@ -310,6 +343,7 @@ export async function POST(req) {
         );
       }
 
+      // insert new event into database
       const result = await pool.query(
         `INSERT INTO events (title, start_time, end_time, all_day)
          VALUES ($1, $2, $3, $4)
@@ -317,6 +351,7 @@ export async function POST(req) {
         [title, start_time, end_time, all_day]
       );
       
+      // format response with friendly time
       const friendlyStartTime = new Date(start_time).toLocaleString();
       return new Response(
         JSON.stringify({ 
@@ -327,9 +362,11 @@ export async function POST(req) {
       );
     }
 
-
+    // handle move operations
     if (parsedResponse.move) {
+      // get move details
       const { title, from_date, to_date } = parsedResponse.move;
+      // update event dates
       const result = await pool.query(
         `UPDATE events 
          SET start_time = start_time + ($3::date - $2::date),
@@ -340,6 +377,7 @@ export async function POST(req) {
         [title, from_date, to_date]
       );
       
+      // if no event found
       if (result.rowCount === 0) {
         return new Response(
           JSON.stringify({ 
@@ -349,6 +387,7 @@ export async function POST(req) {
         );
       }
 
+      // return success response
       return new Response(
         JSON.stringify({ 
           response: `Moved "${title}" to ${to_date}.`,
@@ -358,11 +397,14 @@ export async function POST(req) {
       );
     }
 
+    // handle list operations
     if (parsedResponse.list) {
+      // get date parameter
       const { date } = parsedResponse.list;
       let query = '';
       let values = [];
 
+      // build query based on timeframe
       switch (date) {
         case 'today':
           query = `SELECT * FROM events WHERE DATE(start_time) = CURRENT_DATE`;
@@ -378,12 +420,15 @@ export async function POST(req) {
           `;
           break;
         default:
+          // for specific date queries
           query = `SELECT * FROM events WHERE DATE(start_time) = $1`;
           values = [date];
       }
 
+      // execute list query
       const result = await pool.query(query, values);
       
+      // format events for response
       const events = result.rows.map(event => ({
         title: event.title,
         start: event.start_time,
@@ -391,6 +436,7 @@ export async function POST(req) {
         allDay: event.all_day
       }));
 
+      // return list of events
       return new Response(
         JSON.stringify({ 
           response: `Found ${events.length} event(s)`,
@@ -400,7 +446,7 @@ export async function POST(req) {
       );
     }
     
-
+    // if no valid operation found, return error
     return new Response(
       JSON.stringify({ 
         response: "I'm not sure what you want to do with your calendar. Could you rephrase that?" 
@@ -408,11 +454,10 @@ export async function POST(req) {
       { status: 400 }
     );
 
-
-
-
   } catch (error) {
+    // log any errors that occur
     console.error("Error processing message:", error);
+    // return error response
     return new Response(
       JSON.stringify({ 
         response: "Sorry, I couldn't process that request. Please try again.",

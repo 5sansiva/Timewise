@@ -1,5 +1,6 @@
-// components/TaskCalendar.tsx
+// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
 
+// Import necessary libraries and components
 import React, { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -8,6 +9,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import Modal from 'react-modal';
 import ChatInterface from './ChatInterface';
 
+// Interface defining the structure of a calendar event
 interface CalendarEvent {
   id: string;
   title: string;
@@ -16,6 +18,7 @@ interface CalendarEvent {
   allDay: boolean;
 }
 
+// Interface defining the structure for drag-and-drop information
 interface DropInfo {
   event: CalendarEvent;
   oldStart: string;
@@ -26,15 +29,24 @@ interface DropInfo {
   newAllDay: boolean;
 }
 
+// Main TaskCalendar component
 const TaskCalendar = () => {
+  // State for managing calendar events
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  
+  // State for modal visibility and selected event
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  
+  // State for managing the modal root and error messages
   const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  
+  // State for handling drag-and-drop actions and confirmation modal
   const [dropInfo, setDropInfo] = useState<DropInfo | null>(null);
   const [isDropConfirmOpen, setIsDropConfirmOpen] = useState(false);
 
+  // Effect to set up the modal root element for accessibility
   useEffect(() => {
     let root = document.getElementById('modal-root');
     if (!root) {
@@ -45,6 +57,7 @@ const TaskCalendar = () => {
     Modal.setAppElement('#modal-root');
     setModalRoot(root);
 
+    // Clean up the modal root on unmount
     return () => {
       if (root && !root.childNodes.length) {
         document.body.removeChild(root);
@@ -52,21 +65,25 @@ const TaskCalendar = () => {
     };
   }, []);
 
+  // Fetch initial events when component mounts
   useEffect(() => {
     fetchEvents();
   }, []);
 
+  // Helper function to format dates to ISO string format for input fields
   const formatDateForInput = (date: Date): string => {
     const pad = (num: number) => num.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
+  // Helper function to set times for all-day events
   const setAllDayTimes = (date: string | Date, isEnd: boolean = false): string => {
     const d = new Date(date);
     d.setHours(isEnd ? 23 : 0, isEnd ? 59 : 0, 0, 0);
     return formatDateForInput(d);
   };
 
+  // Function to fetch events from the backend API
   const fetchEvents = async () => {
     try {
       const response = await fetch('/api/events');
@@ -83,6 +100,7 @@ const TaskCalendar = () => {
     }
   };
 
+  // Function to open the modal and optionally populate with selected event data
   const openModal = (event: CalendarEvent | null) => {
     if (event) {
       const updatedEvent = {
@@ -98,18 +116,21 @@ const TaskCalendar = () => {
     setErrorMessage('');
   };
 
+  // Function to close the modal and clear selected event data
   const closeModal = () => {
     setSelectedEvent(null);
     setIsModalOpen(false);
     setErrorMessage('');
   };
 
+  // Function to validate if start time is before end time
   const validateEventTimes = (start: string, end: string): boolean => {
     const startDate = new Date(start);
     const endDate = new Date(end);
     return startDate < endDate;
   };
 
+  // Handle form submission to save or update an event
   const handleEventSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -153,6 +174,7 @@ const TaskCalendar = () => {
         allDay: newEvent.all_day,
       };
 
+      // Update events state based on method (POST or PUT)
       if (method === 'POST') {
         setEvents(prev => [...prev, formattedEvent]);
       } else {
@@ -170,6 +192,7 @@ const TaskCalendar = () => {
     }
   };
 
+  // Function to delete an event
   const handleEventDelete = async () => {
     if (selectedEvent?.id) {
       try {
@@ -185,8 +208,8 @@ const TaskCalendar = () => {
       }
     }
   };
-  
 
+  // Handle selection of date on the calendar for creating a new event
   const handleDateSelect = (selectInfo: any) => {
     const startDate = new Date(selectInfo.start);
     const endDate = new Date(selectInfo.end);
@@ -203,6 +226,7 @@ const TaskCalendar = () => {
     openModal(newEvent);
   };
 
+  // Handle clicking on an existing event to edit it
   const handleEventClick = (eventInfo: any) => {
     const event = {
       id: eventInfo.event.id,
@@ -215,6 +239,7 @@ const TaskCalendar = () => {
     openModal(event);
   };
 
+  // Handle checkbox change for all-day events
   const handleAllDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedEvent) return;
 
@@ -230,6 +255,7 @@ const TaskCalendar = () => {
     });
   };
 
+  // Handle drag-and-drop events on the calendar
   const handleEventDrop = async (dropEventInfo: any) => {
     const event = dropEventInfo.event;
     const oldEvent = dropEventInfo.oldEvent;
@@ -274,6 +300,7 @@ const TaskCalendar = () => {
     return date.toLocaleString();
   };
 
+  // Function to confirm the drag-and-drop event update
   const handleConfirmDrop = async () => {
     if (!dropInfo) return;
 
@@ -320,6 +347,7 @@ const TaskCalendar = () => {
   return (
     <div className="calendar-container bg-light-gray p-4 rounded-lg shadow">
       <style>
+        {/* Custom styles for the calendar and modals */}
         {`
           .calendar-container { background-color: #f7f7f7; }
           .fc-theme-standard td, .fc-theme-standard th { border-color: #dcdcdc; }
@@ -536,4 +564,5 @@ const TaskCalendar = () => {
   );
 };
 
+// Export the TaskCalendar component as the default export
 export default TaskCalendar;

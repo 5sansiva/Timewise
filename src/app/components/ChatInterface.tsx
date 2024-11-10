@@ -1,12 +1,15 @@
-//components/ChatInterface.tsx
+// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
 
+// Import necessary modules and hooks
 import React, { useState, useRef, useEffect } from 'react';
 
+// Interface defining the structure of a chat message
 interface ChatMessage {
   type: 'user' | 'assistant' | 'error' | 'success';
   content: string;
 }
 
+// Props interface defining the structure of event handling functions
 interface ChatInterfaceProps {
   onEventCreate: (event: {
     id: string | number;
@@ -18,37 +21,52 @@ interface ChatInterfaceProps {
   onEventDelete?: (response: { message: string }) => void;
 }
 
+// Main ChatInterface component
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDelete }) => {
+  // State to manage the current user input
   const [input, setInput] = useState<string>('');
+  
+  // State to hold the history of chat messages
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  
+  // State to indicate if a request is in progress
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // Reference for the chat history container to handle scrolling
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages are added
+  // Effect to auto-scroll to the bottom of chat history when it updates
   useEffect(() => {
     if (chatHistoryRef.current) {
       chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
     }
   }, [chatHistory]);
 
+  // Function to handle sending a message
   const handleSend = async () => {
+    // Ignore if input is empty
     if (!input.trim()) return;
 
+    // Create a message object from user input
     const userMessage: ChatMessage = { type: 'user', content: input };
+    
+    // Add user message to chat history and reset input
     setChatHistory(prev => [...prev, userMessage]);
     setInput('');
-    setIsLoading(true);
+    setIsLoading(true); // Set loading to true while processing
 
     try {
+      // Send the input message to the server API
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
       });
 
+      // Parse the response from the server
       const data = await response.json();
 
-      // Handle different response types
+      // Handle different response statuses from the server
       if (data.status === 'error') {
         setChatHistory(prev => [
           ...prev,
@@ -65,14 +83,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
         return;
       }
 
-      // Handle successful responses
+      // Create a success message from the assistant's response
       const assistantMessage: ChatMessage = { 
         type: 'success', 
         content: data.response 
       };
+      
+      // Add assistant message to chat history
       setChatHistory(prev => [...prev, assistantMessage]);
 
-      // Handle different operation responses
+      // Trigger event creation or deletion based on response data
       if (data.event) {
         onEventCreate(data.event);
       } else if (data.status === 'success' && data.response.includes('Removed')) {
@@ -80,6 +100,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
       }
 
     } catch (error) {
+      // Handle errors during fetch
       console.error('Error processing message:', error);
       setChatHistory(prev => [
         ...prev,
@@ -89,16 +110,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
         }
       ]);
     } finally {
+      // Reset loading state once message processing is complete
       setIsLoading(false);
     }
   };
 
+  // Render the chat interface UI
   return (
     <div className="chat-interface">
+      {/* Header section for the chat */}
       <div className="chat-header">
         Calendar Assistant
       </div>
+
+      {/* Chat history container */}
       <div className="chat-history" ref={chatHistoryRef}>
+        {/* Initial welcome message if no messages in chat history */}
         {chatHistory.length === 0 ? (
           <div className="welcome-message">
             Hello! I can help you manage your calendar. Try commands like:
@@ -109,6 +136,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
             </ul>
           </div>
         ) : (
+          // Map over chat history and render each message
           chatHistory.map((msg, idx) => (
             <div key={idx} className={`message ${msg.type}`}>
               <span className="message-prefix">
@@ -118,6 +146,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
             </div>
           ))
         )}
+
+        {/* Loading indicator displayed when processing a message */}
         {isLoading && (
           <div className="loading-indicator">
             <span>Thinking</span>
@@ -125,6 +155,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
           </div>
         )}
       </div>
+
+      {/* Input section for typing and sending messages */}
       <div className="chat-input">
         <input
           type="text"
@@ -132,8 +164,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSend()}
-          disabled={isLoading}
+          disabled={isLoading} // Disable input when loading
         />
+        
+        {/* Button to send messages */}
         <button 
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
@@ -142,6 +176,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
           {isLoading ? 'Processing...' : 'Send'}
         </button>
       </div>
+
+      {/* Styles for the chat interface */}
       <style jsx>{`
         .chat-interface {
           border: 1px solid #e2e8f0;
@@ -281,4 +317,5 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onEventCreate, onEventDel
   );
 };
 
+// Export the ChatInterface component as default
 export default ChatInterface;
