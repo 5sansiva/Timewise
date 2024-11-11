@@ -4,14 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CalendarDays, MessageSquare, HelpCircle, Settings, User, Bell } from "lucide-react"
 import Link from "next/link"
 
-export default function HomePage() {
+export default function home() {
   const menuItems = [
-    { title: "Calendar Dashboard", icon: CalendarDays, description: "View and manage your schedule", link: "/components/TaskCalender" },
-    { title: "AI Chatbot", icon: MessageSquare, description: "Get intelligent assistance", link: "/components/Chatbot" },
-    { title: "Help & Support", icon: HelpCircle, description: "Find answers and get help", link: "/components/HelpSupport" },
+    { title: "Calendar Dashboard", icon: CalendarDays, description: "View and manage your schedule", link: "/TaskCalendar" },
+    { title: "AI Chatbot", icon: MessageSquare, description: "Get intelligent assistance", link: "/Chatbot" },
+    { title: "Help & Support", icon: HelpCircle, description: "Find answers and get help", link: "/HelpSupport" },
     { title: "Settings", icon: Settings, description: "Customize your app experience", link: "/settings" },
-    { title: "Profile", icon: User, description: "Manage your account details", link: "/components/Profile" },
-    { title: "Notifications", icon: Bell, description: "Stay updated with alerts", link: "/components/Notifications" },
+    { title: "Profile", icon: User, description: "Manage your account details", link: "/Profile" },
+    { title: "Notifications", icon: Bell, description: "Stay updated with alerts", link: "/Notifications" },
   ]
 
   return (
@@ -39,7 +39,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-gray-600 mb-4">{item.description}</CardDescription>
-                <Link href={item.link} passHref>
+                <Link href={item.link}>
                   <Button className="w-full bg-gray-700 hover:bg-gray-800 text-white">
                     Go to {item.title}
                   </Button>

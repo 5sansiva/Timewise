@@ -14,12 +14,7 @@ import TaskCalendar from './components/TaskCalendar';
 export default function HomePage() {
   return (
     <div>
-      {/* Page title */}
-      <h2>Time Wise Calendar View</h2>
-      
-      {/* Display the TaskCalendar component here */}
-     
-      <TaskCalendar />
+      <Home />
     </div>
   );
 }
