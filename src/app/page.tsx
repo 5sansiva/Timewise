@@ -8,6 +8,7 @@
 // Importing TaskCalendar component to display the calendar on this page
 
 import Home from './components/home';
+import ProfilePage from './components/profile-page';
 
 
 // HomePage component: this is the main page where the calendar will be displayed
@@ -19,7 +20,7 @@ export default function HomePage() {
       
       {/* Display the TaskCalendar component here */}
      
-      <Home />
+      <ProfilePage />
     </div>
   );
 }
