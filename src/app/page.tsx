@@ -1,9 +1,7 @@
-// Name: Venkat Sai Eshwar Varma Sagi (VXS210103)
-
-// src/app/page.tsx
-
-// Same this for use client as TaskCalendar
+// Ensure "use client" is the first line in the file
 "use client";
+
+import React from 'react';
 
 // Importing TaskCalendar component to display the calendar on this page
 import TaskCalendar from './components/TaskCalendar';
