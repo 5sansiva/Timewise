@@ -1,18 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TimeWise Calendar Bot
 
-## Getting Started
+A Calendar app with an AI bot that helps manage your calendar and schedule through simple commands.
 
-First, run the development server:
+## 📋 Prerequisites
+
+Before running this project, make sure you have the following installed:
+- Node.js
+- PostgreSQL
+- npm
+
+## 🚀 Getting Started
+
+### Database Setup
+
+1. Install PostgreSQL if you haven't already
+2. Create a new database
+3. Locate the `TimeWiseDB_backup.sql` file in the root directory
+4. Restore the database using:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+psql your_database_name < TimeWiseDB_backup.sql
 ```
+
+### Environment Setup
+
+1. Create a `.env.local` file in the root directory
+2. Add the following environment variables (Use port 5433 if 5432 doesn't work):
+
+```plaintext
+# Add your environment variables here
+# Database configuration
+DB_HOST=your_host
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_NAME=your_database_name
+DB_PORT=5432
+
+# Discord configuration
+DISCORD_TOKEN=your_discord_bot_token
+DISCORD_CLIENT_ID=your_client_id
+```
+
+### Installation
+
+1. Clone the repository
+```bash
+https://github.com/5sansiva/CS-3354.git
+```
+
+2. Install dependencies
+```bash
+npm install
+```
+
+## 🔧 Running the Application
+
+The application needs to be run in two parts:
+
+1. Start the Discord bot:
+```bash
+npm run bot
+```
+
+2. In a separate terminal, start the development server:
+```bash
+npm run dev
+```
+
+## 🤖 Using the Discord Bot
+
+1. Join our Discord server: [TimeWise Server](https://discord.gg/UzsSZZYpXj)
+2. Navigate to the `#testing` channel
+3. Use the bot with the following syntax:
+```
+!calendar {command}
+```
+
+##
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
@@ -29,8 +94,3 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
