@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import ChatInterface from "../components/ChatInterface";
+import ChatInterface from "@/app/components/ChatInterface";
 
 
 export default function ChatInterfacePage() {

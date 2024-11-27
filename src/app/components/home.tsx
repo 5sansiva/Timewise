@@ -6,11 +6,11 @@ import Link from "next/link"
 
 export default function home() {
   const menuItems = [
-    { title: "Calendar Dashboard", icon: CalendarDays, description: "View and manage your schedule", link: "/TaskCalendar" },
-    { title: "AI Chatbot", icon: MessageSquare, description: "Get intelligent assistance", link: "/Chatbot" },
-    { title: "Help & Support", icon: HelpCircle, description: "Find answers and get help", link: "/HelpSupport" },
-    { title: "Settings", icon: Settings, description: "Customize your app experience", link: "/settings" },
-    { title: "Profile", icon: User, description: "Manage your account details", link: "/Profile" },
+    { title: "Calendar Dashboard", icon: CalendarDays, description: "View and manage your schedule", link: "/Home/TaskCalendar" },
+    { title: "AI Chatbot", icon: MessageSquare, description: "Get intelligent assistance", link: "/Home/Chatbot" },
+    { title: "Help & Support", icon: HelpCircle, description: "Find answers and get help", link: "/Home/HelpSupport" },
+    { title: "Settings", icon: Settings, description: "Customize your app experience", link: "/Home/Settings" },
+    { title: "Profile", icon: User, description: "Manage your account details", link: "/Home/Profile" },
     { title: "Notifications", icon: Bell, description: "Stay updated with alerts", link: "/Notifications" },
   ]
 

@@ -35,7 +35,7 @@
     "next-env.d.ts",
     "next.config.js",
     ".next/types/**/*.ts"
-  ],
+, "src/app/Home"  ],
   "exclude": [
     "node_modules",
     ".next" // Exclude .next folder to avoid conflicts

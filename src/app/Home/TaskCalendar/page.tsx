@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import TaskCalendar from "../components/TaskCalendar";
+import TaskCalendar from "@/app/components/TaskCalendar";
 
 export default function TaskCalendarPage() {
     return (

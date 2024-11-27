@@ -12,16 +12,47 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (password !== confirmPassword) {
       alert("Passwords don't match!")
       return
     }
+    
+    try {
+      const response = await fetch("/api/signup", {
+        method: "POST", // POST method to submit data
+        headers: {
+          "Content-Type": "application/json", // Tell the server it's JSON
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }), // Send email and password in the request body
+      });
+
+      const result = await response.json(); // Parse the JSON response
+
+      if (response.ok) {
+        alert("Signup successful!");
+      } else {
+        alert(`Signup failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error signing up:", error);
+      alert("An error occurred. Please try again.");
+    }
+  
+
+
+
     // Handle signup logic here
     console.log('Signup attempted with:', { name, email, password })
   }
 
+  
+  
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md">
@@ -38,11 +69,22 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">First Name</Label>
                   <Input
                     id="name"
                     type="text"
-                    placeholder="John Doe"
+                    placeholder="John"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Last Name</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -80,7 +122,7 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
-              <Button className="w-full mt-6 bg-gray-700 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out" type="submit">
+              <Button id = "sign-up" className="w-full mt-6 bg-gray-700 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out" type="submit">
                 Sign Up
               </Button>
             </form>
