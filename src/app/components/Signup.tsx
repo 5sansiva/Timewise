@@ -40,7 +40,7 @@ export default function SignupPage() {
       const data = await response.json();
   
       if (response.ok) {
-        window.location.href = "/login";
+        window.location.href = "/";
       } else {
         alert(data.error || 'Failed to create account');
       }
@@ -135,7 +135,7 @@ export default function SignupPage() {
         </Card>
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-gray-700 hover:text-gray-800 cursor-pointer">
+          <Link href="/" className="font-medium text-gray-700 hover:text-gray-800 cursor-pointer">
             Sign in
           </Link>
         </p>
