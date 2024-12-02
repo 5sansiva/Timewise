@@ -6,9 +6,9 @@ const HelpSupport: React.FC = () => {
       <h1>Help & Support</h1>
       <p>If you need assistance, please refer to the resources below:</p>
       <ul>
-        <li><a href="/faq">FAQs</a></li>
-        <li><a href="/tutorial">Tutorials</a></li>
-        <li><a href="/contact">Contact Support</a></li>
+        <li><a href="/Home/HelpSupport/FAQ">FAQs</a></li>
+        <li><a href="/Home/HelpSupport/Tutorial">Tutorials</a></li>
+        <li><a href="/Home/HelpSupport/Contact">Contact Support</a></li>
       </ul>
     </div>
   );
