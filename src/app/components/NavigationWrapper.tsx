@@ -5,7 +5,7 @@ import NavBar from "./Navbar";
 
 export default function NavigationWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isHiddenPage = pathname === "/" || pathname === "/Home";
+  const isHiddenPage = pathname === "/" || pathname === "/Home" || pathname === "/Signup";
 
   return (
     <>
