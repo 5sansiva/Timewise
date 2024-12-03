@@ -1,4 +1,3 @@
-// Name: Sushant Ganji (SXG220252)
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarDays, MessageSquare, HelpCircle, Settings, User, Bell } from "lucide-react"
@@ -20,42 +19,51 @@ export default function home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <CalendarDays className="h-8 w-8 text-gray-700 mr-2" />
-            <h1 className="text-2xl font-semibold text-gray-800">AppWise</h1>
+            <h1 className="text-2xl font-semibold text-gray-800">TimeWise</h1>
           </div>
-          <Link href = "/">
+          <Link href="/">
             <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
               Sign Out
             </Button>
           </Link>
-          
         </div>
       </header>
 
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-3xl font-semibold text-gray-800 mb-6">Welcome to AppWise</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item, index) => (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center space-x-4 pb-2">
-                <item.icon className="h-8 w-8 text-gray-700" />
-                <CardTitle className="text-xl font-semibold">{item.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-600 mb-4">{item.description}</CardDescription>
-                <Link href={item.link}>
-                  <Button className="w-full bg-gray-700 hover:bg-gray-800 text-white">
-                    Go to {item.title}
-                  </Button>
-                </Link>
-              </CardContent>
+        <h2 className="text-3xl font-semibold text-gray-800 mb-6">Welcome to TimeWise</h2>
+        <div className="flex">
+          <div className="w-[900px]">
+            <div className="grid grid-cols-2 gap-4 max-w-4xl ml-8">
+              {menuItems.map((item, index) => (
+                <Card key={index} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="flex flex-row items-center space-x-3 pb-2">
+                    <item.icon className="h-5 w-5 text-gray-700" />
+                    <CardTitle className="text-lg font-semibold">{item.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-gray-600 mb-3 text-sm">{item.description}</CardDescription>
+                    <Link href={item.link}>
+                      <Button className="w-full bg-gray-700 hover:bg-gray-800 text-white text-sm text-left">
+                        Go to {item.title}
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-[400px] ml-24">
+            <Card className="bg-white h-full p-6 shadow-sm rounded-lg">
+              {/* Content will go here later */}
             </Card>
-          ))}
+          </div>
         </div>
       </main>
 
       <footer className="bg-white border-t border-gray-200 py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600">
-          © 2024 AppWise. All rights reserved.
+          © 2024 TimeWise. All rights reserved.
         </div>
       </footer>
     </div>
