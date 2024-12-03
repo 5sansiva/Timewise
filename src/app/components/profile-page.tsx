@@ -8,8 +8,10 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useRouter } from 'next/navigation'
 
 export default function ProfilePage() {
+  const router = useRouter()
   const [user, setUser] = useState({
     id: '',
     firstName: '',
@@ -96,6 +98,40 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to update profile. Please try again.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This action cannot be undone.'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+  
+    try {
+      const response = await fetch('/api/update', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: user.id }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete account');
+      }
+  
+      // Redirect to login page using Next.js router
+      router.push('/');
+      
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to delete account. Please try again.');
     }
   };
 
@@ -278,6 +314,21 @@ export default function ProfilePage() {
           Enable Two-Factor Authentication
         </Label>
       </div>
+      <div className="mt-6 pt-6 border-t border-gray-200">
+  <div className="flex flex-col space-y-2">
+    <h3 className="text-lg font-medium text-red-600">Danger Zone</h3>
+    <p className="text-sm text-gray-600">
+      Once you delete your account, there is no going back. Please be certain.
+    </p>
+    <Button 
+      onClick={handleDeleteAccount}
+      variant="destructive" 
+      className="w-fit"
+    >
+      Delete Account
+    </Button>
+  </div>
+</div>
     </CardContent>
   </Card>
 </TabsContent>
