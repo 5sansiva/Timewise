@@ -1,6 +1,5 @@
-// Name: Sushant Ganji (SXG220252)
 "use client";
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,34 +7,51 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CalendarDays } from "lucide-react"
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isValidLogin, setIsValidLogin] = useState(false);
-  const router = useRouter();
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [showSignUpPrompt, setShowSignUpPrompt] = useState(false)
+  const router = useRouter()
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setShowSignUpPrompt(false)
+    setIsLoading(true)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    const exampleEmail = "swe@gmail.com";
-    const validPassword = "swe3354";
+      const data = await response.json()
 
-    if (email === exampleEmail && password === validPassword) {
-      setIsValidLogin(true);
-      router.push("/Home");
-    } 
-    
-    else {
-      alert("Invalid email or password. Please try again.");
+      if (response.ok) {
+        console.log('Login successful:', data)
+        router.push('/Home')
+      } else {
+        if (response.status === 401 && data.message.includes('No user found')) {
+          setShowSignUpPrompt(true)
+          setError('Email not found.')
+        } else {
+          setError(data.message || 'Login failed. Please try again.')
+        }
+      }
+    } catch (err) {
+      console.error('Login error:', err)
+      setError('An error occurred during login. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
-
-    console.log('Login attempted with:', email, password);
   }
-
-
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
@@ -61,6 +77,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -71,11 +88,32 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
+                {error && (
+                  <div className="text-red-500 text-sm mt-2">
+                    {error}
+                  </div>
+                )}
+                {showSignUpPrompt && (
+                  <Alert className="mt-4">
+                    <AlertDescription>
+                      This email is not registered. Would you like to{' '}
+                      <Link href={`/Signup?email=${encodeURIComponent(email)}`} className="font-medium text-blue-600 hover:text-blue-800">
+                        create an account
+                      </Link>
+                      ?
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
-              <Button className="w-full mt-6 bg-gray-700 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out" type="submit">
-                Sign In
+              <Button 
+                className="w-full mt-6 bg-gray-700 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out" 
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
           </CardContent>

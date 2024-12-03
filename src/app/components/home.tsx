@@ -22,9 +22,12 @@ export default function home() {
             <CalendarDays className="h-8 w-8 text-gray-700 mr-2" />
             <h1 className="text-2xl font-semibold text-gray-800">AppWise</h1>
           </div>
-          <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
-            Sign Out
-          </Button>
+          <Link href = "/">
+            <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
+              Sign Out
+            </Button>
+          </Link>
+          
         </div>
       </header>
 

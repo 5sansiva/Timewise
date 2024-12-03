@@ -1,18 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function ProfilePage() {
   const [user, setUser] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
+    id: '',
+    firstName: '',
+    lastName: '',
+    email: '',
     avatar: 'https://github.com/shadcn.png',
   })
 
@@ -22,21 +24,129 @@ export default function ProfilePage() {
     github: true,
   })
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Implement profile update logic here
-    console.log('Profile updated')
-  }
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch('/api/update');
+        const data = await response.json();
+        
+        console.log('Received user data:', data);
+        
+        if (response.ok) {
+          setUser({
+            id: data.id,
+            firstName: data.first_name,
+            lastName: data.last_name,
+            email: data.email,
+            avatar: 'https://github.com/shadcn.png',
+          });
+        } else {
+          console.error('Failed to fetch user:', data.error);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Implement password change logic here
-    console.log('Password changed')
-  }
+    fetchUserData();
+  }, []);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Form submitted!");
+    
+    const firstNameInput = document.getElementById('firstName') as HTMLInputElement;
+    const lastNameInput = document.getElementById('lastName') as HTMLInputElement;
+    const emailInput = document.getElementById('email') as HTMLInputElement;
+    
+    const userData = {
+      id: user.id,
+      firstName: firstNameInput.value,
+      lastName: lastNameInput.value,
+      email: emailInput.value,
+    };
+    
+    console.log("Sending update request with data:", userData);
+  
+    try {
+      const response = await fetch('/api/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+  
+      const data = await response.json();
+      console.log("Response received:", data);
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile');
+      }
+
+      setUser(prev => ({
+        ...prev,
+        firstName: firstNameInput.value,
+        lastName: lastNameInput.value,
+        email: emailInput.value,
+      }));
+
+      alert('Profile updated successfully!');
+
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to update profile. Please try again.');
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const currentPasswordInput = document.getElementById('current-password') as HTMLInputElement;
+    const newPasswordInput = document.getElementById('new-password') as HTMLInputElement;
+    const confirmPasswordInput = document.getElementById('confirm-password') as HTMLInputElement;
+  
+    if (newPasswordInput.value !== confirmPasswordInput.value) {
+      alert('New passwords do not match');
+      return;
+    }
+  
+    const passwordData = {
+      id: user.id,
+      currentPassword: currentPasswordInput.value,
+      newPassword: newPasswordInput.value,
+      type: 'password' // Add this to differentiate from profile updates
+    };
+  
+    try {
+      const response = await fetch('/api/update', {
+        method: 'PUT', // Changed from POST to PUT
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(passwordData),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password');
+      }
+  
+      alert('Password updated successfully!');
+      // Clear the form
+      currentPasswordInput.value = '';
+      newPasswordInput.value = '';
+      confirmPasswordInput.value = '';
+  
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to update password. Please try again.');
+    }
+  };
 
   const handleTwoFactorToggle = () => {
     setTwoFactorEnabled(!twoFactorEnabled)
-    // Implement two-factor authentication toggle logic here
   }
 
   const handleLinkedAccountToggle = (account: 'google' | 'github') => {
@@ -44,41 +154,18 @@ export default function ProfilePage() {
       ...prev,
       [account]: !prev[account]
     }))
-    // Implement linked account toggle logic here
   }
 
   return (
     <div className="container mx-auto p-6 font-sans">
-      <style jsx global>{`
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-        h1, h2, h3, h4, h5, h6 {
-          color: #2d3748 !important;
-          font-weight: 600;
-        }
-        .custom-button {
-          background-color: #4a5568 !important;
-          border-color: #4a5568 !important;
-          color: white !important;
-          font-weight: 500 !important;
-          font-size: 0.9rem !important;
-          padding: 6px 12px !important;
-          text-transform: capitalize !important;
-        }
-        .custom-button:hover {
-          background-color: #2d3748 !important;
-          border-color: #2d3748 !important;
-        }
-      `}</style>
       <h1 className="text-3xl font-semibold mb-6">Profile Settings</h1>
       <div className="flex items-center space-x-4 mb-6">
         <Avatar className="w-20 h-20">
-          <AvatarImage src={user.avatar} alt={user.name} />
-          <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+          <AvatarImage src={user.avatar} alt={`${user.firstName} ${user.lastName}`} />
+          <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
         </Avatar>
         <div>
-          <h2 className="text-2xl font-semibold">{user.name}</h2>
+          <h2 className="text-2xl font-semibold">{user.firstName} {user.lastName}</h2>
           <p className="text-gray-600">{user.email}</p>
         </div>
       </div>
@@ -97,57 +184,103 @@ export default function ProfilePage() {
             <CardContent>
               <form onSubmit={handleUpdateProfile}>
                 <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name" className="text-sm font-medium text-gray-700">Name</Label>
-                    <Input id="name" defaultValue={user.name} className="border-gray-300" />
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">First Name</Label>
+                      <Input 
+                        id="firstName" 
+                        defaultValue={user.firstName} 
+                        className="border-gray-300" 
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">Last Name</Label>
+                      <Input 
+                        id="lastName" 
+                        defaultValue={user.lastName} 
+                        className="border-gray-300" 
+                      />
+                    </div>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
-                    <Input id="email" type="email" defaultValue={user.email} className="border-gray-300" />
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      defaultValue={user.email} 
+                      className="border-gray-300" 
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <Button type="submit" className="custom-button">Save Changes</Button>
                   </div>
                 </div>
               </form>
             </CardContent>
-            <CardFooter>
-              <Button type="submit" className="custom-button">Save Changes</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
         <TabsContent value="security">
-          <Card className="border border-gray-300">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">Security Settings</CardTitle>
-              <CardDescription className="text-gray-600">Manage your account security here.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form onSubmit={handlePasswordChange}>
-                <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="current-password" className="text-sm font-medium text-gray-700">Current Password</Label>
-                    <Input id="current-password" type="password" className="border-gray-300" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="new-password" className="text-sm font-medium text-gray-700">New Password</Label>
-                    <Input id="new-password" type="password" className="border-gray-300" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" className="border-gray-300" />
-                  </div>
-                </div>
-                <Button type="submit" className="custom-button mt-4">Change Password</Button>
-              </form>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="two-factor"
-                  checked={twoFactorEnabled}
-                  onCheckedChange={handleTwoFactorToggle}
-                />
-                <Label htmlFor="two-factor" className="text-sm font-medium text-gray-700">Enable Two-Factor Authentication</Label>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+  <Card className="border border-gray-300">
+    <CardHeader>
+      <CardTitle className="text-xl font-semibold">Security Settings</CardTitle>
+      <CardDescription className="text-gray-600">Manage your account security here.</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <form onSubmit={handlePasswordChange}>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="current-password" className="text-sm font-medium text-gray-700">
+              Current Password
+            </Label>
+            <Input 
+              id="current-password" 
+              type="password" 
+              required
+              className="border-gray-300" 
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="new-password" className="text-sm font-medium text-gray-700">
+              New Password
+            </Label>
+            <Input 
+              id="new-password" 
+              type="password" 
+              required
+              className="border-gray-300" 
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">
+              Confirm New Password
+            </Label>
+            <Input 
+              id="confirm-password" 
+              type="password" 
+              required
+              className="border-gray-300" 
+            />
+          </div>
+          <div className="mt-4">
+            <Button type="submit" className="custom-button">
+              Change Password
+            </Button>
+          </div>
+        </div>
+      </form>
+      <div className="flex items-center space-x-2 mt-6">
+        <Switch
+          id="two-factor"
+          checked={twoFactorEnabled}
+          onCheckedChange={handleTwoFactorToggle}
+        />
+        <Label htmlFor="two-factor" className="text-sm font-medium text-gray-700">
+          Enable Two-Factor Authentication
+        </Label>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
         <TabsContent value="linked-accounts">
           <Card className="border border-gray-300">
             <CardHeader>

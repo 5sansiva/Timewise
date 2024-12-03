@@ -5,53 +5,50 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarDays } from "lucide-react"
+import LoginPage from './Login'
+import Link from 'next/link';
 
 export default function SignupPage() {
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (password !== confirmPassword) {
-      alert("Passwords don't match!")
-      return
+      alert("Passwords don't match!");
+      return;
     }
-    
+  
     try {
-      const response = await fetch("/api/signup", {
-        method: "POST", // POST method to submit data
+      const response = await fetch('/api/signup', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json", // Tell the server it's JSON
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email,
-          password: password,
-        }), // Send email and password in the request body
+          firstName,
+          lastName,
+          email,
+          password,
+        }),
       });
-
-      const result = await response.json(); // Parse the JSON response
-
+  
+      const data = await response.json();
+  
       if (response.ok) {
-        alert("Signup successful!");
+        window.location.href = "/";
       } else {
-        alert(`Signup failed: ${result.error || "Unknown error"}`);
+        alert(data.error || 'Failed to create account');
       }
     } catch (error) {
-      console.error("Error signing up:", error);
-      alert("An error occurred. Please try again.");
+      console.error('Error:', error);
+      alert('An error occurred while creating your account');
     }
-  
-
-
-
-    // Handle signup logic here
-    console.log('Signup attempted with:', { name, email, password })
   }
-
-  
   
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
@@ -69,24 +66,24 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">First Name</Label>
+                  <Label htmlFor="firstName">First Name</Label>
                   <Input
-                    id="name"
+                    id="firstName"
                     type="text"
                     placeholder="John"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Last Name</Label>
+                  <Label htmlFor="lastName">Last Name</Label>
                   <Input
-                    id="name"
+                    id="lastName"
                     type="text"
                     placeholder="Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     required
                   />
                 </div>
@@ -122,7 +119,7 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
-              <Button id = "sign-up" className="w-full mt-6 bg-gray-700 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out" type="submit">
+              <Button id="sign-up" className="w-full mt-6 bg-gray-700 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out" type="submit">
                 Sign Up
               </Button>
             </form>
@@ -137,7 +134,10 @@ export default function SignupPage() {
           </CardFooter>
         </Card>
         <p className="mt-4 text-center text-sm text-gray-600">
-          Already have an account? <a href="#" className="font-medium text-gray-700 hover:text-gray-800">Sign in</a>
+          Already have an account?{" "}
+          <Link href="/" className="font-medium text-gray-700 hover:text-gray-800 cursor-pointer">
+            Sign in
+          </Link>
         </p>
       </div>
     </div>
