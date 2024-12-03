@@ -55,7 +55,10 @@ export default function home() {
 
           <div className="w-[400px] ml-24">
             <Card className="bg-white h-full p-6 shadow-sm rounded-lg">
-              {/* Content will go here later */}
+            <div className="overflow-y-auto h-full p-6">
+              {/* Your scrollable content goes here */}
+            </div>
+              
             </Card>
           </div>
         </div>
