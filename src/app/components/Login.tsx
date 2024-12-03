@@ -117,9 +117,10 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          
+          {/*<CardFooter className="flex justify-center">
             <a href="#" className="text-sm text-gray-600 hover:text-gray-800">Forgot password?</a>
-          </CardFooter>
+          </CardFooter>*/}
         </Card>
         <p className="mt-4 text-center text-sm text-gray-600">
           Don't have an account?{" "}
