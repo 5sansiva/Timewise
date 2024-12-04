@@ -29,20 +29,14 @@ const Navbar = () => {
               <span>Help Support</span>
             </Link>
             
-            <Link href="Notifications" className="flex items-center text-gray-600 hover:text-gray-800">
-              <Bell className="h-5 w-5 mr-1" />
-              <span>Notifications</span>
-            </Link>
+            
             
             <Link href="Profile" className="flex items-center text-gray-600 hover:text-gray-800">
               <User className="h-5 w-5 mr-1" />
               <span>Profile</span>
             </Link>
             
-            <Link href="Settings" className="flex items-center text-gray-600 hover:text-gray-800">
-              <Settings className="h-5 w-5 mr-1" />
-              <span>Settings</span>
-            </Link>
+            
             
             <Link href="TaskCalendar" className="flex items-center text-gray-600 hover:text-gray-800">
               <CalendarDays className="h-5 w-5 mr-1" />

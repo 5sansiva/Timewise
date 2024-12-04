@@ -55,7 +55,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="flex justify-center items-center mb-6">
           <CalendarDays className="h-12 w-12 text-gray-700 mr-2" />
-          <h1 className="text-4xl font-semibold text-gray-800">AppWise</h1>
+          <h1 className="text-4xl font-semibold text-gray-800">TimeWise</h1>
         </div>
         <Card>
           <CardHeader>
